@@ -79,26 +79,18 @@ async function bridgeNativeToken(
     bridgerParentChain
   );
 
-  await nativeTokenContract.approve(
-    namedAccount(argv.from).address,
-    ethers.constants.MaxUint256
-  );
-  await nativeTokenContract.approve(
-    inboxAddr,
-    ethers.utils.parseEther(argv.amount)
-  );
+  await (
+    await nativeTokenContract.approve(
+      inboxAddr,
+      ethers.utils.parseEther(argv.amount)
+    )
+  ).wait();
 
-  const check1 = await nativeTokenContract.allowance(
-    namedAccount(argv.from).address,
-    inboxAddr
-  );
-
-  console.log("check1", check1);
-  /// user_token_bridge_deployer token balance
-  const tokenAmount = await nativeTokenContract.balanceOf(
-    namedAccount(argv.from).address
-  );
-  console.log("tokenAmount", namedAccount(argv.from).address, tokenAmount);
+  // const check1 = await nativeTokenContract.allowance(
+  //   namedAccount(argv.from).address,
+  //   inboxAddr
+  // );
+  // console.log("check1", check1);
 
   /// deposit fee token
   const iface = new ethers.utils.Interface([
@@ -119,7 +111,6 @@ async function bridgeNativeToken(
     const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
     while (true) {
       const balance = await bridger.getBalance();
-      console.log("bridger balance:", balance);
       if (balance.gte(ethers.utils.parseEther(argv.amount))) {
         return;
       }
@@ -346,10 +337,6 @@ export const approveL1ERC20Command = {
       ethers.utils.sha256(ethers.utils.toUtf8Bytes(argv.from)),
       l1provider
     );
-
-    const fromAddress = deployerWallet.address;
-    console.log("argv.from", argv.from);
-    console.log("address", fromAddress);
 
     const nativeTokenAddr = ethers.utils.hexlify(deploydata["native-token"]);
 

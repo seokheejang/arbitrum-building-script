@@ -51,6 +51,8 @@ batchposters=1
 devprivkey=b6b15c8cb491557369f3c7d2c287b053eb229daa9c22138887752191c9520659
 l1chainid=1337
 simple=false
+private_geth=false
+private_geth_url=""
 while [[ $# -gt 0 ]]; do
     case $1 in
         --init)
@@ -153,6 +155,12 @@ while [[ $# -gt 0 ]]; do
             simple=false
             shift
             ;;
+        --private-geth)
+            private_geth=true
+            private_geth_url=$2
+            shift
+            shift
+            ;;
         *)
             echo Usage: $0 \[OPTIONS..]
             echo        $0 script [SCRIPT-ARGS]
@@ -170,6 +178,7 @@ while [[ $# -gt 0 ]]; do
             echo --tokenbridge     deploy L1-L2 token bridge.
             echo --no-tokenbridge  don\'t build or launch tokenbridge
             echo --no-run          does not launch nodes \(useful with build or init\)
+            echo --private-geth    l1 private geth url
             echo
             echo script runs inside a separate docker. For SCRIPT-ARGS, run $0 script --help
             exit 0
@@ -295,26 +304,32 @@ if $force_init; then
     #-----------------------------------------------------------------------------------------------------------------
     # L1 Geth 세팅 Start
     #-----------------------------------------------------------------------------------------------------------------
-    echo == Generating l1 keys
-    docker compose run --rm scripts write-accounts
-    docker compose run --rm --entrypoint sh geth -c "echo passphrase > /datadir/passphrase"
-    docker compose run --rm --entrypoint sh geth -c "chown -R 1000:1000 /keystore"
-    docker compose run --rm --entrypoint sh geth -c "chown -R 1000:1000 /config"
+    if $private_geth; then
+        echo $private_geth $private_geth_url
+        exit 1
+    else
+        echo == Generating l1 keys
+        docker compose run --rm scripts write-accounts
+        docker compose run --rm --entrypoint sh geth -c "echo passphrase > /datadir/passphrase"
+        docker compose run --rm --entrypoint sh geth -c "chown -R 1000:1000 /keystore"
+        docker compose run --rm --entrypoint sh geth -c "chown -R 1000:1000 /config"
 
-    docker compose up --wait geth
+        docker compose up --wait geth
 
-    echo == Funding validator, sequencer and l2owner
-    docker compose run --rm scripts send-l1 --ethamount 1000 --to validator --wait
-    docker compose run --rm scripts send-l1 --ethamount 1000 --to sequencer --wait
-    docker compose run --rm scripts send-l1 --ethamount 1000 --to l2owner --wait
+        echo == Funding validator, sequencer and l2owner
+        docker compose run --rm scripts send-l1 --ethamount 1000 --to validator --wait
+        docker compose run --rm scripts send-l1 --ethamount 1000 --to sequencer --wait
+        docker compose run --rm scripts send-l1 --ethamount 1000 --to l2owner --wait
 
-    # echo == create l1 traffic
-    # docker compose run --rm scripts send-l1 --ethamount 1000 --to user_l1user --wait
-    # docker compose run --rm scripts send-l1 --ethamount 0.0001 --from user_l1user --to user_l1user_b --wait --delay 500 --times 1000000 > /dev/null &
+        # echo == create l1 traffic
+        # docker compose run --rm scripts send-l1 --ethamount 1000 --to user_l1user --wait
+        # docker compose run --rm scripts send-l1 --ethamount 0.0001 --from user_l1user --to user_l1user_b --wait --delay 500 --times 1000000 > /dev/null &
 
-    echo == Funding l1 token deployer
-    docker compose run --rm scripts send-l1 --ethamount 100 --to user_fee_token_deployer --wait
-    docker compose run --rm scripts send-l1 --ethamount 100 --to user_token_bridge_deployer --wait
+        echo == Funding l1 token deployer
+        docker compose run --rm scripts send-l1 --ethamount 100 --to user_fee_token_deployer --wait
+        docker compose run --rm scripts send-l1 --ethamount 100 --to user_token_bridge_deployer --wait
+    fi
+    
 
     #-----------------------------------------------------------------------------------------------------------------
     # L1 Geth 세팅 End
@@ -325,7 +340,6 @@ if $force_init; then
     #-----------------------------------------------------------------------------------------------------------------
     echo == Writing l2 chain config
     docker compose run --rm scripts write-l2-chain-config
-
 
     if $l2_custom_fee_token; then
         echo == Deploying custom fee token
@@ -360,9 +374,6 @@ if $force_init; then
     echo == Funding l2 funnel and dev key 
     docker compose up --wait $INITIAL_SEQ_NODES
 
-    echo "==00"
-    docker compose run --rm scripts balanceOf-erc20-l1 --token $nativeTokenAddress --from user_token_bridge_deployer
-
     if $tokenbridge; then
         echo == Deploying L1-L2 token bridge
         deployer_key=`printf "%s" "user_token_bridge_deployer" | openssl dgst -sha256 | sed 's/^.*= //'`
@@ -376,30 +387,23 @@ if $force_init; then
             # echo l1Weth: $l1Weth
         # fi
         docker compose run -e PARENT_WETH_OVERRIDE=$l1Weth -e ROLLUP_OWNER_KEY=$l2ownerKey -e ROLLUP_ADDRESS=$rollupAddress -e PARENT_RPC=http://geth:8545 -e PARENT_KEY=$deployer_key  -e CHILD_RPC=http://sequencer:8547 -e CHILD_KEY=$deployer_key tokenbridge deploy:local:token-bridge
-        # docker compose run -e ROLLUP_OWNER_KEY=$l2ownerKey -e ROLLUP_ADDRESS=$rollupAddress -e PARENT_KEY=$devprivkey -e PARENT_RPC=http://geth:8545 -e CHILD_KEY=$devprivkey -e CHILD_RPC=http://sequencer:8547 tokenbridge deploy:local:token-bridge
         docker compose run --entrypoint sh tokenbridge -c "cat network.json && cp network.json l1l2_network.json && cp network.json localNetwork.json"
         echo
     fi
     # native token approve
-    docker compose run --rm scripts approve-erc20-l1 --from user_token_bridge_deployer --wait
+    # docker compose run --rm scripts approve-erc20-l1 --from user_token_bridge_deployer --wait
 
     # l2node custom fee
     echo == Funding l2 deployers
     if $l2_custom_fee_token; then
         # bridge-native-token-to-l2 구현 필요
-        echo "==0"
-        docker compose run --rm scripts balanceOf-erc20-l1 --token $nativeTokenAddress --from user_token_bridge_deployer
-        echo "==1"
         docker compose run --rm scripts bridge-native-token-to-l2 --amount 50000 --from user_token_bridge_deployer --wait
-        echo "==2"
         docker compose run --rm scripts send-l2 --ethamount 500 --from user_token_bridge_deployer --wait
-        echo "==3"
         docker compose run --rm scripts send-l2 --ethamount 500 --from user_token_bridge_deployer --to "key_0x$devprivkey" --wait
     else
         docker compose run --rm scripts bridge-funds --ethamount 100000 --wait
         docker compose run --rm scripts bridge-funds --ethamount 1000 --wait --from "key_0x$devprivkey"
     fi
-
     #-----------------------------------------------------------------------------------------------------------------
     # L2 Nitro 세팅 End
     #-----------------------------------------------------------------------------------------------------------------
