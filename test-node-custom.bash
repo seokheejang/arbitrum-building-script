@@ -2,6 +2,15 @@
 
 set -e
 
+ENV_FILE=".env"
+
+if [ -f "$ENV_FILE" ]; then
+  export $(grep -v '^#' $ENV_FILE | xargs)
+else
+  echo "$ENV_FILE not find file."
+  exit 1
+fi
+
 NITRO_NODE_VERSION=offchainlabs/nitro-node:v2.3.3-6a1c1a7-dev
 BLOCKSCOUT_VERSION=offchainlabs/blockscout:v1.0.0-c8db5b1
 
@@ -28,7 +37,7 @@ if [[ $# -gt 0 ]] && [[ $1 == "script" ]]; then
     exit $?
 fi
 
-num_volumes=`docker volume ls --filter label=com.docker.compose.project=nitro-testnode -q | wc -l`
+num_volumes=`docker volume ls --filter label=com.docker.compose.project=arbitrum-building-script -q | wc -l`
 
 if [[ $num_volumes -eq 0 ]]; then
     force_init=true
@@ -51,8 +60,14 @@ batchposters=1
 devprivkey=b6b15c8cb491557369f3c7d2c287b053eb229daa9c22138887752191c9520659
 l1chainid=1337
 simple=false
-private_geth=false
-private_geth_url=""
+geth_http_rpc=http://geth:8545
+geth_ws_rpc=ws://geth:8546
+priv_geth=false
+priv_geth_http_url=$ETH_HTTP_URL
+priv_geth_ws_url=$ETH_WS_URL
+priv_geth_chainId=$ETH_CHAIN_ID
+priv_dev_key=$DEV_PRIV_KEY
+
 while [[ $# -gt 0 ]]; do
     case $1 in
         --init)
@@ -155,10 +170,11 @@ while [[ $# -gt 0 ]]; do
             simple=false
             shift
             ;;
-        --private-geth)
-            private_geth=true
-            private_geth_url=$2
-            shift
+        --priv-geth)
+            priv_geth=true
+            geth_http_rpc=$priv_geth_http_url
+            geth_ws_rpc=$priv_geth_ws_url
+            l1chainid=$priv_geth_chainId
             shift
             ;;
         *)
@@ -178,7 +194,7 @@ while [[ $# -gt 0 ]]; do
             echo --tokenbridge     deploy L1-L2 token bridge.
             echo --no-tokenbridge  don\'t build or launch tokenbridge
             echo --no-run          does not launch nodes \(useful with build or init\)
-            echo --private-geth    l1 private geth url
+            echo --priv-geth       l1 private geth dev key
             echo
             echo script runs inside a separate docker. For SCRIPT-ARGS, run $0 script --help
             exit 0
@@ -228,14 +244,10 @@ if [ $batchposters -gt 2 ]; then
     NODES="$NODES poster_c"
 fi
 
-
 if $validate; then
     NODES="$NODES validator"
 elif ! $simple; then
     NODES="$NODES staker-unsafe"
-fi
-if $l3node; then
-    NODES="$NODES l3node"
 fi
 if $blockscout; then
     NODES="$NODES blockscout"
@@ -291,12 +303,12 @@ fi
 if $force_init; then
     echo == Removing old data..
     docker compose down
-    leftoverContainers=`docker container ls -a --filter label=com.docker.compose.project=nitro-testnode -q | xargs echo`
+    leftoverContainers=`docker container ls -a --filter label=com.docker.compose.project=arbitrum-building-script -q | xargs echo`
     if [ `echo $leftoverContainers | wc -w` -gt 0 ]; then
         docker rm $leftoverContainers
     fi
-    docker volume prune -f --filter label=com.docker.compose.project=nitro-testnode
-    leftoverVolumes=`docker volume ls --filter label=com.docker.compose.project=nitro-testnode -q | xargs echo`
+    docker volume prune -f --filter label=com.docker.compose.project=arbitrum-building-script
+    leftoverVolumes=`docker volume ls --filter label=com.docker.compose.project=arbitrum-building-script -q | xargs echo`
     if [ `echo $leftoverVolumes | wc -w` -gt 0 ]; then
         docker volume rm $leftoverVolumes
     fi
@@ -304,20 +316,28 @@ if $force_init; then
     #-----------------------------------------------------------------------------------------------------------------
     # L1 Geth 세팅 Start
     #-----------------------------------------------------------------------------------------------------------------
-    if $private_geth; then
-        echo $private_geth $private_geth_url
-        exit 1
-    else
-        echo == Generating l1 keys
-        docker compose run --rm scripts write-accounts
-        docker compose run --rm --entrypoint sh geth -c "echo passphrase > /datadir/passphrase"
-        docker compose run --rm --entrypoint sh geth -c "chown -R 1000:1000 /keystore"
-        docker compose run --rm --entrypoint sh geth -c "chown -R 1000:1000 /config"
+    echo == Generating l1 keys
+    docker compose run --rm scripts write-accounts
+    docker compose run --rm --entrypoint sh geth -c "echo passphrase > /datadir/passphrase"
+    docker compose run --rm --entrypoint sh geth -c "chown -R 1000:1000 /keystore"
+    docker compose run --rm --entrypoint sh geth -c "chown -R 1000:1000 /config"
 
+    if $priv_geth; then
+        echo "== ENV" 
+        echo " priv_geth_http_url :" $priv_geth_http_url
+        echo " priv_geth_ws_url   :" $priv_geth_ws_url
+        echo " priv_geth_chainId  :" $priv_geth_chainId
+        echo " priv_dev_key       :" $priv_dev_key
+        docker compose run --rm scripts send-l1 --ethamount 0.1 --from ${priv_dev_key} --to validator --l1url ${geth_ws_rpc} --wait 
+        docker compose run --rm scripts send-l1 --ethamount 0.1 --from ${priv_dev_key} --to sequencer --l1url ${geth_ws_rpc} --wait
+        docker compose run --rm scripts send-l1 --ethamount 0.1 --from ${priv_dev_key} --to l2owner --l1url ${geth_ws_rpc} --wait 
+        docker compose run --rm scripts send-l1 --ethamount 0.1 --from ${priv_dev_key} --to user_fee_token_deployer --l1url ${geth_ws_rpc} --wait
+        docker compose run --rm scripts send-l1 --ethamount 0.1 --from ${priv_dev_key} --to user_token_bridge_deployer --l1url ${geth_ws_rpc} --wait
+    else
         docker compose up --wait geth
 
         echo == Funding validator, sequencer and l2owner
-        docker compose run --rm scripts send-l1 --ethamount 1000 --to validator --wait
+        docker compose run --rm scripts send-l1 --ethamount 1000 --to validator --wait 
         docker compose run --rm scripts send-l1 --ethamount 1000 --to sequencer --wait
         docker compose run --rm scripts send-l1 --ethamount 1000 --to l2owner --wait
 
@@ -329,8 +349,6 @@ if $force_init; then
         docker compose run --rm scripts send-l1 --ethamount 100 --to user_fee_token_deployer --wait
         docker compose run --rm scripts send-l1 --ethamount 100 --to user_token_bridge_deployer --wait
     fi
-    
-
     #-----------------------------------------------------------------------------------------------------------------
     # L1 Geth 세팅 End
     #-----------------------------------------------------------------------------------------------------------------
@@ -344,13 +362,13 @@ if $force_init; then
     if $l2_custom_fee_token; then
         echo == Deploying custom fee token
         # L1 Chain 에 ERC-20 Deploy
-        nativeTokenAddress=`docker compose run --rm scripts create-erc20-l1 --deployer user_fee_token_deployer --mintTo user_token_bridge_deployer | tail -n 1 | awk '{ print $NF }'`
-        docker compose run --rm scripts transfer-erc20-l1 --token $nativeTokenAddress --amount 1000 --from user_token_bridge_deployer --to l2owner
+        nativeTokenAddress=`docker compose run --rm scripts create-erc20-l1 --l1url ${geth_ws_rpc} --deployer user_fee_token_deployer --mintTo user_token_bridge_deployer | tail -n 1 | awk '{ print $NF }'`
+        docker compose run --rm scripts transfer-erc20-l1 --l1url ${geth_ws_rpc} --token $nativeTokenAddress --amount 1000 --from user_token_bridge_deployer --to l2owner
         EXTRA_L2_DEPLOY_FLAG="-e FEE_TOKEN_ADDRESS=$nativeTokenAddress"
         echo EXTRA_L2_DEPLOY_FLAG: $EXTRA_L2_DEPLOY_FLAG
 
-        docker compose run --rm scripts balanceOf-erc20-l1 --token $nativeTokenAddress --from user_token_bridge_deployer
-        docker compose run --rm scripts balanceOf-erc20-l1 --token $nativeTokenAddress --from l2owner
+        docker compose run --rm scripts balanceOf-erc20-l1 --l1url ${geth_ws_rpc} --token $nativeTokenAddress --from user_token_bridge_deployer
+        docker compose run --rm scripts balanceOf-erc20-l1 --l1url ${geth_ws_rpc} --token $nativeTokenAddress --from l2owner
     fi
 
     echo == Deploying L2 chain
@@ -360,11 +378,15 @@ if $force_init; then
     wasmroot=`docker compose run --entrypoint sh sequencer -c "cat /home/user/target/machines/latest/module-root.txt"`
     
     # Custom Fee Token Address 추가
-    docker compose run -e PARENT_CHAIN_RPC="http://geth:8545" -e DEPLOYER_PRIVKEY=$l2ownerKey -e PARENT_CHAIN_ID=$l1chainid -e CHILD_CHAIN_NAME="arb-dev-test" -e MAX_DATA_SIZE=117964 -e OWNER_ADDRESS=$l2ownerAddress -e WASM_MODULE_ROOT=$wasmroot -e SEQUENCER_ADDRESS=$sequenceraddress -e AUTHORIZE_VALIDATORS=10 -e CHILD_CHAIN_CONFIG_PATH="/config/l2_chain_config.json" -e CHAIN_DEPLOYMENT_INFO="/config/deployment.json" -e CHILD_CHAIN_INFO="/config/deployed_chain_info.json" $EXTRA_L2_DEPLOY_FLAG rollupcreator create-rollup-testnode
+    docker compose run -e PARENT_CHAIN_RPC=$geth_http_rpc -e DEPLOYER_PRIVKEY=$l2ownerKey -e PARENT_CHAIN_ID=$l1chainid -e CHILD_CHAIN_NAME="arb-dev-test" -e MAX_DATA_SIZE=117964 -e OWNER_ADDRESS=$l2ownerAddress -e WASM_MODULE_ROOT=$wasmroot -e SEQUENCER_ADDRESS=$sequenceraddress -e AUTHORIZE_VALIDATORS=10 -e CHILD_CHAIN_CONFIG_PATH="/config/l2_chain_config.json" -e CHAIN_DEPLOYMENT_INFO="/config/deployment.json" -e CHILD_CHAIN_INFO="/config/deployed_chain_info.json" $EXTRA_L2_DEPLOY_FLAG rollupcreator create-rollup-testnode
     docker compose run --entrypoint sh rollupcreator -c "jq [.[]] /config/deployed_chain_info.json > /config/l2_chain_info.json"
 
     echo == Writing configs
-    docker compose run --rm scripts write-config
+    if $priv_geth; then
+        docker compose run --rm scripts write-config --l1url ${priv_geth_ws_url}
+    else
+        docker compose run --rm scripts write-config
+    fi
     
     echo == Initializing redis
     docker compose up --wait redis
@@ -378,26 +400,16 @@ if $force_init; then
         echo == Deploying L1-L2 token bridge
         deployer_key=`printf "%s" "user_token_bridge_deployer" | openssl dgst -sha256 | sed 's/^.*= //'`
         rollupAddress=`docker compose run --entrypoint sh poster -c "jq -r '.[0].rollup.rollup' /config/deployed_chain_info.json | tail -n 1 | tr -d '\r\n'"`
-        echo deployer_key: $deployer_key rollupAddress: $rollupAddress
-        l1Weth=""
-        # if $tokenbridge; then
-            # we deployed an L1 token bridge
-            # we need to pull out the L1 WETH address and pass it as an override to the L2 token bridge deployment
-            # l1Weth=`docker compose run --entrypoint sh tokenbridge -c "cat l1l2_network.json" | jq -r '.l2Network.tokenBridge.l1Weth'`
-            # echo l1Weth: $l1Weth
-        # fi
-        docker compose run -e PARENT_WETH_OVERRIDE=$l1Weth -e ROLLUP_OWNER_KEY=$l2ownerKey -e ROLLUP_ADDRESS=$rollupAddress -e PARENT_RPC=http://geth:8545 -e PARENT_KEY=$deployer_key  -e CHILD_RPC=http://sequencer:8547 -e CHILD_KEY=$deployer_key tokenbridge deploy:local:token-bridge
+        echo deployer_key: $deployer_key 
+        echo rollupAddress: $rollupAddress
+        docker compose run -e ROLLUP_OWNER_KEY=$l2ownerKey -e ROLLUP_ADDRESS=$rollupAddress -e PARENT_RPC=$geth_http_rpc -e PARENT_KEY=$deployer_key -e CHILD_RPC=http://sequencer:8547 -e CHILD_KEY=$deployer_key tokenbridge deploy:local:token-bridge
         docker compose run --entrypoint sh tokenbridge -c "cat network.json && cp network.json l1l2_network.json && cp network.json localNetwork.json"
         echo
     fi
-    # native token approve
-    # docker compose run --rm scripts approve-erc20-l1 --from user_token_bridge_deployer --wait
 
-    # l2node custom fee
     echo == Funding l2 deployers
     if $l2_custom_fee_token; then
-        # bridge-native-token-to-l2 구현 필요
-        docker compose run --rm scripts bridge-native-token-to-l2 --amount 50000 --from user_token_bridge_deployer --wait
+        docker compose run --rm scripts bridge-native-token-to-l2 --l1url ${geth_ws_rpc} --amount 50000 --from user_token_bridge_deployer --wait
         docker compose run --rm scripts send-l2 --ethamount 500 --from user_token_bridge_deployer --wait
         docker compose run --rm scripts send-l2 --ethamount 500 --from user_token_bridge_deployer --to "key_0x$devprivkey" --wait
     else
@@ -419,5 +431,6 @@ if $run; then
     echo if things go wrong - use --init to create a new chain
     echo
 
+    echo == Launching NODES: $NODES
     docker compose up $UP_FLAG $NODES
 fi

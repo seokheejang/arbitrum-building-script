@@ -6,7 +6,7 @@ services:
       - sequencer
     image: blockscout-testnode
     restart: always
-    container_name: "blockscout"
+    container_name: 'blockscout'
     links:
       - postgres:database
     command:
@@ -17,26 +17,26 @@ services:
         node init/install.js postgres 5432
         bin/blockscout start
     extra_hosts:
-      - "host.docker.internal:host-gateway"
+      - 'host.docker.internal:host-gateway'
     env_file:
-      - ./blockscout/nitro.env
+      -  ./blockscout/nitro.env
     environment:
-      ETHEREUM_JSONRPC_VARIANT: "geth"
-      ETHEREUM_JSONRPC_HTTP_URL: http://sequencer:8547/
-      INDEXER_DISABLE_PENDING_TRANSACTIONS_FETCHER: "true"
-      DATABASE_URL: postgresql://postgres:@postgres:5432/blockscout
-      ECTO_USE_SSL: "false"
+        ETHEREUM_JSONRPC_VARIANT: 'geth'
+        ETHEREUM_JSONRPC_HTTP_URL: http://sequencer:8547/
+        INDEXER_DISABLE_PENDING_TRANSACTIONS_FETCHER: "true"
+        DATABASE_URL: postgresql://postgres:@postgres:5432/blockscout
+        ECTO_USE_SSL: "false"
     ports:
       - "127.0.0.1:4000:4000"
 
   postgres:
     image: postgres:13.6
     restart: always
-    container_name: "postgres"
+    container_name: 'postgres'
     environment:
-      POSTGRES_PASSWORD: ""
-      POSTGRES_USER: "postgres"
-      POSTGRES_HOST_AUTH_METHOD: "trust"
+        POSTGRES_PASSWORD: ''
+        POSTGRES_USER: 'postgres'
+        POSTGRES_HOST_AUTH_METHOD: 'trust'
     volumes:
       - "postgres-data:/var/lib/postgresql/data"
     ports:
@@ -162,6 +162,8 @@ services:
       - "config:/config"
       - "tokenbridge-data:/tokenbridge-data"
     command: --conf.file /config/sequencer_config.json --node.feed.output.enable --node.feed.output.port 9642  --http.api net,web3,eth,txpool,debug --node.seq-coordinator.my-url  ws://sequencer:8548 --graphql.enable --graphql.vhosts * --graphql.corsdomain *
+    depends_on:
+      - geth
 
   sequencer_b:
     pid: host # allow debugging
@@ -174,6 +176,7 @@ services:
       - "config:/config"
     command: --conf.file /config/sequencer_config.json --node.seq-coordinator.my-url ws://sequencer_b:8548
     depends_on:
+      - geth
       - redis
 
   sequencer_c:
@@ -187,6 +190,7 @@ services:
       - "config:/config"
     command: --conf.file /config/sequencer_config.json --node.seq-coordinator.my-url ws://sequencer_c:8548
     depends_on:
+      - geth
       - redis
 
   sequencer_d:
@@ -200,6 +204,7 @@ services:
       - "config:/config"
     command: --conf.file /config/sequencer_config.json --node.seq-coordinator.my-url ws://sequencer_d:8548
     depends_on:
+      - geth
       - redis
 
   staker-unsafe:
@@ -230,6 +235,7 @@ services:
       - "config:/config"
     command: --conf.file /config/poster_config.json
     depends_on:
+      - geth
       - redis
 
   poster_b:
@@ -244,6 +250,7 @@ services:
       - "config:/config"
     command: --conf.file /config/poster_config.json
     depends_on:
+      - geth
       - redis
 
   poster_c:
@@ -258,6 +265,7 @@ services:
       - "config:/config"
     command: --conf.file /config/poster_config.json
     depends_on:
+      - geth
       - redis
 
   validator:
@@ -317,6 +325,7 @@ services:
 
   tokenbridge:
     depends_on:
+      - geth
       - sequencer
     pid: host
     build:
@@ -325,13 +334,14 @@ services:
         TOKEN_BRIDGE_BRANCH: ${TOKEN_BRIDGE_BRANCH:-}
     environment:
       - ARB_URL=http://sequencer:8547
-      - ETH_URL=${ETH_HTTP_URL}
+      - ETH_URL=http://geth:8545
     volumes:
       - "tokenbridge-data:/workspace"
       - /var/run/docker.sock:/var/run/docker.sock
 
   rollupcreator:
     depends_on:
+      - geth
       - sequencer
     pid: host
     build:

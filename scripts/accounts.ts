@@ -9,7 +9,7 @@ const specialAccounts = 6;
 
 async function writeAccounts() {
   for (let i = 0; i < specialAccounts; i++) {
-    const wallet = specialAccount(i)
+    const wallet = specialAccount(i);
     let walletJSON = await wallet.encrypt(consts.l1passphrase);
     fs.writeFileSync(
       path.join(consts.l1keystore, wallet.address + ".key"),
@@ -66,6 +66,9 @@ export function namedAccount(
   }
   if (name.startsWith("key_")) {
     return new ethers.Wallet(ethers.utils.hexlify(name.substring(4)));
+  }
+  if (name.startsWith("0x")) {
+    return new ethers.Wallet(name);
   }
   throw Error("bad account name: [" + name + "] see general help");
 }
@@ -131,7 +134,7 @@ export const printPrivateKeyCommand = {
   handler: async (argv: any) => {
     await runStress(argv, handlePrintPrivateKey);
   },
-}
+};
 
 export const writeAccountsCommand = {
   command: "write-accounts",
