@@ -186,7 +186,7 @@ while [[ $# -gt 0 ]]; do
             echo --dev             build nitro and blockscout dockers from source instead of pulling them. Disables simple mode
             echo --init            remove all data, rebuild, deploy new rollup
             echo --validate        heavy computation, validating all blocks in WASM
-            echo --l2-fee-token    L3 chain is set up to use custom fee token. Only valid if also '--l3node' is provided
+            echo --l2-fee-token    L2 chain is set up to use custom fee token.
             echo --batchposters    batch posters [0-3]
             echo --redundantsequencers redundant sequencers [0-3]
             echo --detach          detach from nodes after running them
@@ -196,7 +196,7 @@ while [[ $# -gt 0 ]]; do
             echo --no-run          does not launch nodes \(useful with build or init\)
             echo --priv-geth       l1 private geth dev key
             echo
-            echo script runs inside a separate docker. For SCRIPT-ARGS, run $0 script --help
+            echo script runs inside a sepwarate docker. For SCRIPT-ARGS, run $0 script --help
             exit 0
     esac
 done
@@ -328,11 +328,11 @@ if $force_init; then
         echo " priv_geth_ws_url   :" $priv_geth_ws_url
         echo " priv_geth_chainId  :" $priv_geth_chainId
         echo " priv_dev_key       :" $priv_dev_key
-        docker compose run --rm scripts send-l1 --ethamount 0.1 --from ${priv_dev_key} --to validator --l1url ${geth_ws_rpc} --wait 
-        docker compose run --rm scripts send-l1 --ethamount 0.1 --from ${priv_dev_key} --to sequencer --l1url ${geth_ws_rpc} --wait
-        docker compose run --rm scripts send-l1 --ethamount 0.1 --from ${priv_dev_key} --to l2owner --l1url ${geth_ws_rpc} --wait 
-        docker compose run --rm scripts send-l1 --ethamount 0.1 --from ${priv_dev_key} --to user_fee_token_deployer --l1url ${geth_ws_rpc} --wait
-        docker compose run --rm scripts send-l1 --ethamount 0.1 --from ${priv_dev_key} --to user_token_bridge_deployer --l1url ${geth_ws_rpc} --wait
+        docker compose run --rm scripts send-l1 --ethamount 1 --from ${priv_dev_key} --to validator --l1url ${geth_ws_rpc} --wait 
+        docker compose run --rm scripts send-l1 --ethamount 1 --from ${priv_dev_key} --to sequencer --l1url ${geth_ws_rpc} --wait
+        docker compose run --rm scripts send-l1 --ethamount 1 --from ${priv_dev_key} --to l2owner --l1url ${geth_ws_rpc} --wait 
+        docker compose run --rm scripts send-l1 --ethamount 1 --from ${priv_dev_key} --to user_fee_token_deployer --l1url ${geth_ws_rpc} --wait
+        docker compose run --rm scripts send-l1 --ethamount 1 --from ${priv_dev_key} --to user_token_bridge_deployer --l1url ${geth_ws_rpc} --wait
     else
         docker compose up --wait geth
 
@@ -375,11 +375,11 @@ if $force_init; then
     l2ownerAddress=`docker compose run --rm scripts print-address --account l2owner | tail -n 1 | tr -d '\r\n'`
     l2ownerKey=`docker compose run --rm scripts print-private-key --account l2owner | tail -n 1 | tr -d '\r\n'`
     sequenceraddress=`docker compose run --rm scripts print-address --account sequencer | tail -n 1 | tr -d '\r\n'`
-    wasmroot=`docker compose run --entrypoint sh sequencer -c "cat /home/user/target/machines/latest/module-root.txt"`
+    wasmroot=`docker compose run --rm --entrypoint sh sequencer -c "cat /home/user/target/machines/latest/module-root.txt"`
     
     # Custom Fee Token Address 추가
-    docker compose run -e PARENT_CHAIN_RPC=$geth_http_rpc -e DEPLOYER_PRIVKEY=$l2ownerKey -e PARENT_CHAIN_ID=$l1chainid -e CHILD_CHAIN_NAME="arb-dev-test" -e MAX_DATA_SIZE=117964 -e OWNER_ADDRESS=$l2ownerAddress -e WASM_MODULE_ROOT=$wasmroot -e SEQUENCER_ADDRESS=$sequenceraddress -e AUTHORIZE_VALIDATORS=10 -e CHILD_CHAIN_CONFIG_PATH="/config/l2_chain_config.json" -e CHAIN_DEPLOYMENT_INFO="/config/deployment.json" -e CHILD_CHAIN_INFO="/config/deployed_chain_info.json" $EXTRA_L2_DEPLOY_FLAG rollupcreator create-rollup-testnode
-    docker compose run --entrypoint sh rollupcreator -c "jq [.[]] /config/deployed_chain_info.json > /config/l2_chain_info.json"
+    docker compose run --rm -e PARENT_CHAIN_RPC=$geth_http_rpc -e DEPLOYER_PRIVKEY=$l2ownerKey -e PARENT_CHAIN_ID=$l1chainid -e CHILD_CHAIN_NAME="arb-dev-test" -e MAX_DATA_SIZE=117964 -e OWNER_ADDRESS=$l2ownerAddress -e WASM_MODULE_ROOT=$wasmroot -e SEQUENCER_ADDRESS=$sequenceraddress -e AUTHORIZE_VALIDATORS=10 -e CHILD_CHAIN_CONFIG_PATH="/config/l2_chain_config.json" -e CHAIN_DEPLOYMENT_INFO="/config/deployment.json" -e CHILD_CHAIN_INFO="/config/deployed_chain_info.json" $EXTRA_L2_DEPLOY_FLAG rollupcreator create-rollup-testnode
+    docker compose run --rm --entrypoint sh rollupcreator -c "jq [.[]] /config/deployed_chain_info.json > /config/l2_chain_info.json"
 
     echo == Writing configs
     if $priv_geth; then
@@ -399,11 +399,11 @@ if $force_init; then
     if $tokenbridge; then
         echo == Deploying L1-L2 token bridge
         deployer_key=`printf "%s" "user_token_bridge_deployer" | openssl dgst -sha256 | sed 's/^.*= //'`
-        rollupAddress=`docker compose run --entrypoint sh poster -c "jq -r '.[0].rollup.rollup' /config/deployed_chain_info.json | tail -n 1 | tr -d '\r\n'"`
+        rollupAddress=`docker compose run --rm --entrypoint sh poster -c "jq -r '.[0].rollup.rollup' /config/deployed_chain_info.json | tail -n 1 | tr -d '\r\n'"`
         echo deployer_key: $deployer_key 
         echo rollupAddress: $rollupAddress
-        docker compose run -e ROLLUP_OWNER_KEY=$l2ownerKey -e ROLLUP_ADDRESS=$rollupAddress -e PARENT_RPC=$geth_http_rpc -e PARENT_KEY=$deployer_key -e CHILD_RPC=http://sequencer:8547 -e CHILD_KEY=$deployer_key tokenbridge deploy:local:token-bridge
-        docker compose run --entrypoint sh tokenbridge -c "cat network.json && cp network.json l1l2_network.json && cp network.json localNetwork.json"
+        docker compose run --rm -e ROLLUP_OWNER_KEY=$l2ownerKey -e ROLLUP_ADDRESS=$rollupAddress -e PARENT_RPC=$geth_http_rpc -e PARENT_KEY=$deployer_key -e CHILD_RPC=http://sequencer:8547 -e CHILD_KEY=$deployer_key tokenbridge deploy:local:token-bridge
+        docker compose run --rm --entrypoint sh tokenbridge -c "cat network.json && cp network.json l1l2_network.json && cp network.json localNetwork.json"
         echo
     fi
 

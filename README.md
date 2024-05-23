@@ -2,6 +2,16 @@
 
 arbitrum test node script repo
 
+## Building Scenario
+
+1. L1(local) / L2(local)
+2. L1(private geth) / L2(local)
+3.
+
+## 1. L1(local) / L2(local)
+
+---
+
 ### Init
 
 ```bash
@@ -14,7 +24,27 @@ arbitrum test node script repo
 ./test-node-custom.bash --validate --batchposters 1 --redundantsequencers 0 --blockscout --tokenbridge --l2-fee-token --detach
 ```
 
-### Scripts code build
+## 2. L1(private geth) / L2(local)
+
+---
+
+```bash
+cp .env.sample .env
+```
+
+### Init
+
+```bash
+./test-node-custom.bash --init --build --validate --batchposters 1 --redundantsequencers 0 --blockscout --tokenbridge --l2-fee-token --detach --priv-geth
+```
+
+### Running
+
+```bash
+./test-node-custom.bash --validate --batchposters 1 --redundantsequencers 0 --blockscout --tokenbridge --l2-fee-token --detach --priv-geth
+```
+
+## Scripts code build
 
 ```bash
 docker compose build scripts
