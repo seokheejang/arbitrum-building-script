@@ -356,8 +356,14 @@ if $force_init; then
     #-----------------------------------------------------------------------------------------------------------------
     # L2 Nitro 세팅 Start
     #-----------------------------------------------------------------------------------------------------------------
+    echo == Deploying L2 chain
+    l2ownerAddress=`docker compose run --rm scripts print-address --account l2owner | tail -n 1 | tr -d '\r\n'`
+    l2ownerKey=`docker compose run --rm scripts print-private-key --account l2owner | tail -n 1 | tr -d '\r\n'`
+    sequenceraddress=`docker compose run --rm scripts print-address --account sequencer | tail -n 1 | tr -d '\r\n'`
+    wasmroot=`docker compose run --rm --entrypoint sh sequencer -c "cat /home/user/target/machines/latest/module-root.txt"`
+
     echo == Writing l2 chain config
-    docker compose run --rm scripts write-l2-chain-config
+    docker compose run --rm scripts write-l2-chain-config --l2owner $l2ownerAddress
 
     if $l2_custom_fee_token; then
         echo == Deploying custom fee token
@@ -370,12 +376,6 @@ if $force_init; then
         docker compose run --rm scripts balanceOf-erc20-l1 --l1url ${geth_ws_rpc} --token $nativeTokenAddress --from user_token_bridge_deployer
         docker compose run --rm scripts balanceOf-erc20-l1 --l1url ${geth_ws_rpc} --token $nativeTokenAddress --from l2owner
     fi
-
-    echo == Deploying L2 chain
-    l2ownerAddress=`docker compose run --rm scripts print-address --account l2owner | tail -n 1 | tr -d '\r\n'`
-    l2ownerKey=`docker compose run --rm scripts print-private-key --account l2owner | tail -n 1 | tr -d '\r\n'`
-    sequenceraddress=`docker compose run --rm scripts print-address --account sequencer | tail -n 1 | tr -d '\r\n'`
-    wasmroot=`docker compose run --rm --entrypoint sh sequencer -c "cat /home/user/target/machines/latest/module-root.txt"`
     
     # Custom Fee Token Address 추가
     docker compose run --rm -e PARENT_CHAIN_RPC=$geth_http_rpc -e DEPLOYER_PRIVKEY=$l2ownerKey -e PARENT_CHAIN_ID=$l1chainid -e CHILD_CHAIN_NAME="arb-dev-test" -e MAX_DATA_SIZE=117964 -e OWNER_ADDRESS=$l2ownerAddress -e WASM_MODULE_ROOT=$wasmroot -e SEQUENCER_ADDRESS=$sequenceraddress -e AUTHORIZE_VALIDATORS=10 -e CHILD_CHAIN_CONFIG_PATH="/config/l2_chain_config.json" -e CHAIN_DEPLOYMENT_INFO="/config/deployment.json" -e CHILD_CHAIN_INFO="/config/deployed_chain_info.json" $EXTRA_L2_DEPLOY_FLAG rollupcreator create-rollup-testnode
