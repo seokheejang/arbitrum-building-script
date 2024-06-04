@@ -19,21 +19,33 @@ BLOCKSCOUT_VERSION=offchainlabs/blockscout:v1.0.0-c8db5b1
 DEFAULT_NITRO_CONTRACTS_VERSION="a00d2faac01e050339ff7b0ac5bc91df06e8dbff"
 DEFAULT_TOKEN_BRIDGE_VERSION="v1.2.1"
 
+# debug compose file
+COMPOSE_FILE="docker-compose.yaml"
+DEBUG_DOCKER_HUB_IMAGE="nitro-node-dev-testnode"
+
 # Set default versions if not overriden by provided env vars
 : ${NITRO_CONTRACTS_BRANCH:=$DEFAULT_NITRO_CONTRACTS_VERSION}
 : ${TOKEN_BRIDGE_BRANCH:=$DEFAULT_TOKEN_BRIDGE_VERSION}
 export NITRO_CONTRACTS_BRANCH
 export TOKEN_BRIDGE_BRANCH
+export NITRO_NODE_DEV_IMAGE=${DEBUG_DOCKER_HUB_IMAGE}
 
 echo "Using NITRO_CONTRACTS_BRANCH: $NITRO_CONTRACTS_BRANCH"
 echo "Using TOKEN_BRIDGE_BRANCH: $TOKEN_BRIDGE_BRANCH"
+
 
 mydir=`dirname $0`
 cd "$mydir"
 
 if [[ $# -gt 0 ]] && [[ $1 == "script" ]]; then
     shift
-    docker compose run --rm scripts "$@"
+    docker compose -f $COMPOSE_FILE run --rm scripts "$@"
+    exit $?
+fi
+
+if [[ $# -gt 0 ]] && [[ $1 == "docker" ]]; then
+    shift
+    docker compose -f $COMPOSE_FILE "$@"
     exit $?
 fi
 
@@ -177,6 +189,13 @@ while [[ $# -gt 0 ]]; do
             l1chainid=$priv_geth_chainId
             shift
             ;;
+        --debug)
+            COMPOSE_FILE="docker-compose.yaml"
+            DEBUG_DOCKER_HUB_IMAGE=$2
+            export NITRO_NODE_DEV_IMAGE=${DEBUG_DOCKER_HUB_IMAGE}
+            shift
+            shift
+            ;;
         *)
             echo Usage: $0 \[OPTIONS..]
             echo        $0 script [SCRIPT-ARGS]
@@ -195,6 +214,7 @@ while [[ $# -gt 0 ]]; do
             echo --no-tokenbridge  don\'t build or launch tokenbridge
             echo --no-run          does not launch nodes \(useful with build or init\)
             echo --priv-geth       l1 private geth dev key
+            echo --debug           developer debugging mode
             echo
             echo script runs inside a sepwarate docker. For SCRIPT-ARGS, run $0 script --help
             exit 0
@@ -275,7 +295,7 @@ if $force_build; then
   if $tokenbridge; then
     LOCAL_BUILD_NODES="$LOCAL_BUILD_NODES tokenbridge"
   fi
-  docker compose build --no-rm $LOCAL_BUILD_NODES
+  docker compose -f $COMPOSE_FILE build --no-rm $LOCAL_BUILD_NODES
 fi
 
 if $dev_build_nitro; then
@@ -297,12 +317,12 @@ else
 fi
 
 if $force_build; then
-    docker compose build --no-rm $NODES scripts
+    docker compose -f $COMPOSE_FILE build --no-rm $NODES scripts
 fi
 
 if $force_init; then
     echo == Removing old data..
-    docker compose down
+    docker compose -f $COMPOSE_FILE down
     leftoverContainers=`docker container ls -a --filter label=com.docker.compose.project=arbitrum-building-script -q | xargs echo`
     if [ `echo $leftoverContainers | wc -w` -gt 0 ]; then
         docker rm $leftoverContainers
@@ -317,37 +337,38 @@ if $force_init; then
     # L1 Geth 세팅 Start
     #-----------------------------------------------------------------------------------------------------------------
     echo == Generating l1 keys
-    docker compose run --rm scripts write-accounts
-    docker compose run --rm --entrypoint sh geth -c "echo passphrase > /datadir/passphrase"
-    docker compose run --rm --entrypoint sh geth -c "chown -R 1000:1000 /keystore"
-    docker compose run --rm --entrypoint sh geth -c "chown -R 1000:1000 /config"
+    docker compose -f $COMPOSE_FILE run --rm scripts write-accounts
+    docker compose -f $COMPOSE_FILE run --rm --entrypoint sh geth -c "echo passphrase > /datadir/passphrase"
+    docker compose -f $COMPOSE_FILE run --rm --entrypoint sh geth -c "chown -R 1000:1000 /keystore"
+    docker compose -f $COMPOSE_FILE run --rm --entrypoint sh geth -c "chown -R 1000:1000 /config"
 
     if $priv_geth; then
-        echo "== ENV" 
-        echo " priv_geth_http_url :" $priv_geth_http_url
-        echo " priv_geth_ws_url   :" $priv_geth_ws_url
-        echo " priv_geth_chainId  :" $priv_geth_chainId
-        echo " priv_dev_key       :" $priv_dev_key
-        docker compose run --rm scripts send-l1 --ethamount 1 --from ${priv_dev_key} --to validator --l1url ${geth_ws_rpc} --wait 
-        docker compose run --rm scripts send-l1 --ethamount 1 --from ${priv_dev_key} --to sequencer --l1url ${geth_ws_rpc} --wait
-        docker compose run --rm scripts send-l1 --ethamount 1 --from ${priv_dev_key} --to l2owner --l1url ${geth_ws_rpc} --wait 
-        docker compose run --rm scripts send-l1 --ethamount 1 --from ${priv_dev_key} --to user_fee_token_deployer --l1url ${geth_ws_rpc} --wait
-        docker compose run --rm scripts send-l1 --ethamount 1 --from ${priv_dev_key} --to user_token_bridge_deployer --l1url ${geth_ws_rpc} --wait
+        echo "== ENV"
+        echo " NITRO_NODE_DEV_IMAGE :" $NITRO_NODE_DEV_IMAGE
+        echo " priv_geth_http_url   :" $priv_geth_http_url
+        echo " priv_geth_ws_url     :" $priv_geth_ws_url
+        echo " priv_geth_chainId    :" $priv_geth_chainId
+        echo " priv_dev_key         :" $priv_dev_key
+        docker compose -f $COMPOSE_FILE run --rm scripts send-l1 --ethamount 10 --from ${priv_dev_key} --to validator --l1url ${geth_ws_rpc} --wait 
+        docker compose -f $COMPOSE_FILE run --rm scripts send-l1 --ethamount 10 --from ${priv_dev_key} --to sequencer --l1url ${geth_ws_rpc} --wait
+        docker compose -f $COMPOSE_FILE run --rm scripts send-l1 --ethamount 1 --from ${priv_dev_key} --to l2owner --l1url ${geth_ws_rpc} --wait 
+        docker compose -f $COMPOSE_FILE run --rm scripts send-l1 --ethamount 1 --from ${priv_dev_key} --to user_fee_token_deployer --l1url ${geth_ws_rpc} --wait
+        docker compose -f $COMPOSE_FILE run --rm scripts send-l1 --ethamount 1 --from ${priv_dev_key} --to user_token_bridge_deployer --l1url ${geth_ws_rpc} --wait
     else
-        docker compose up --wait geth
+        docker compose -f $COMPOSE_FILE up --wait geth
 
         echo == Funding validator, sequencer and l2owner
-        docker compose run --rm scripts send-l1 --ethamount 1000 --to validator --wait 
-        docker compose run --rm scripts send-l1 --ethamount 1000 --to sequencer --wait
-        docker compose run --rm scripts send-l1 --ethamount 1000 --to l2owner --wait
+        docker compose -f $COMPOSE_FILE run --rm scripts send-l1 --ethamount 1000 --to validator --wait 
+        docker compose -f $COMPOSE_FILE run --rm scripts send-l1 --ethamount 1000 --to sequencer --wait
+        docker compose -f $COMPOSE_FILE run --rm scripts send-l1 --ethamount 1000 --to l2owner --wait
 
         # echo == create l1 traffic
-        # docker compose run --rm scripts send-l1 --ethamount 1000 --to user_l1user --wait
-        # docker compose run --rm scripts send-l1 --ethamount 0.0001 --from user_l1user --to user_l1user_b --wait --delay 500 --times 1000000 > /dev/null &
+        # docker compose -f $COMPOSE_FILE run --rm scripts send-l1 --ethamount 1000 --to user_l1user --wait
+        # docker compose -f $COMPOSE_FILE run --rm scripts send-l1 --ethamount 0.0001 --from user_l1user --to user_l1user_b --wait --delay 500 --times 1000000 > /dev/null &
 
         echo == Funding l1 token deployer
-        docker compose run --rm scripts send-l1 --ethamount 100 --to user_fee_token_deployer --wait
-        docker compose run --rm scripts send-l1 --ethamount 100 --to user_token_bridge_deployer --wait
+        docker compose -f $COMPOSE_FILE run --rm scripts send-l1 --ethamount 100 --to user_fee_token_deployer --wait
+        docker compose -f $COMPOSE_FILE run --rm scripts send-l1 --ethamount 100 --to user_token_bridge_deployer --wait
     fi
     #-----------------------------------------------------------------------------------------------------------------
     # L1 Geth 세팅 End
@@ -357,64 +378,64 @@ if $force_init; then
     # L2 Nitro 세팅 Start
     #-----------------------------------------------------------------------------------------------------------------
     echo == Deploying L2 chain
-    l2ownerAddress=`docker compose run --rm scripts print-address --account l2owner | tail -n 1 | tr -d '\r\n'`
-    l2ownerKey=`docker compose run --rm scripts print-private-key --account l2owner | tail -n 1 | tr -d '\r\n'`
-    sequenceraddress=`docker compose run --rm scripts print-address --account sequencer | tail -n 1 | tr -d '\r\n'`
-    wasmroot=`docker compose run --rm --entrypoint sh sequencer -c "cat /home/user/target/machines/latest/module-root.txt"`
+    l2ownerAddress=`docker compose -f $COMPOSE_FILE run --rm scripts print-address --account l2owner | tail -n 1 | tr -d '\r\n'`
+    l2ownerKey=`docker compose -f $COMPOSE_FILE run --rm scripts print-private-key --account l2owner | tail -n 1 | tr -d '\r\n'`
+    sequenceraddress=`docker compose -f $COMPOSE_FILE run --rm scripts print-address --account sequencer | tail -n 1 | tr -d '\r\n'`
+    wasmroot=`docker compose -f $COMPOSE_FILE run --rm --entrypoint sh sequencer -c "cat /home/user/target/machines/latest/module-root.txt"`
 
     echo == Writing l2 chain config
-    docker compose run --rm scripts write-l2-chain-config --l2owner $l2ownerAddress
+    docker compose -f $COMPOSE_FILE run --rm scripts write-l2-chain-config --l2owner $l2ownerAddress
 
     if $l2_custom_fee_token; then
         echo == Deploying custom fee token
         # L1 Chain 에 ERC-20 Deploy
-        nativeTokenAddress=`docker compose run --rm scripts create-erc20-l1 --l1url ${geth_ws_rpc} --deployer user_fee_token_deployer --mintTo user_token_bridge_deployer | tail -n 1 | awk '{ print $NF }'`
-        docker compose run --rm scripts transfer-erc20-l1 --l1url ${geth_ws_rpc} --token $nativeTokenAddress --amount 1000 --from user_token_bridge_deployer --to l2owner
+        nativeTokenAddress=`docker compose -f $COMPOSE_FILE run --rm scripts create-erc20-l1 --l1url ${geth_ws_rpc} --deployer user_fee_token_deployer --mintTo user_token_bridge_deployer | tail -n 1 | awk '{ print $NF }'`
+        docker compose -f $COMPOSE_FILE run --rm scripts transfer-erc20-l1 --l1url ${geth_ws_rpc} --token $nativeTokenAddress --amount 1000 --from user_token_bridge_deployer --to l2owner
         EXTRA_L2_DEPLOY_FLAG="-e FEE_TOKEN_ADDRESS=$nativeTokenAddress"
         echo EXTRA_L2_DEPLOY_FLAG: $EXTRA_L2_DEPLOY_FLAG
 
-        docker compose run --rm scripts balanceOf-erc20-l1 --l1url ${geth_ws_rpc} --token $nativeTokenAddress --from user_token_bridge_deployer
-        docker compose run --rm scripts balanceOf-erc20-l1 --l1url ${geth_ws_rpc} --token $nativeTokenAddress --from l2owner
+        docker compose -f $COMPOSE_FILE run --rm scripts balanceOf-erc20-l1 --l1url ${geth_ws_rpc} --token $nativeTokenAddress --from user_token_bridge_deployer
+        docker compose -f $COMPOSE_FILE run --rm scripts balanceOf-erc20-l1 --l1url ${geth_ws_rpc} --token $nativeTokenAddress --from l2owner
     fi
     
     # Custom Fee Token Address 추가
-    docker compose run --rm -e PARENT_CHAIN_RPC=$geth_http_rpc -e DEPLOYER_PRIVKEY=$l2ownerKey -e PARENT_CHAIN_ID=$l1chainid -e CHILD_CHAIN_NAME="arb-dev-test" -e MAX_DATA_SIZE=117964 -e OWNER_ADDRESS=$l2ownerAddress -e WASM_MODULE_ROOT=$wasmroot -e SEQUENCER_ADDRESS=$sequenceraddress -e AUTHORIZE_VALIDATORS=10 -e CHILD_CHAIN_CONFIG_PATH="/config/l2_chain_config.json" -e CHAIN_DEPLOYMENT_INFO="/config/deployment.json" -e CHILD_CHAIN_INFO="/config/deployed_chain_info.json" $EXTRA_L2_DEPLOY_FLAG rollupcreator create-rollup-testnode
-    docker compose run --rm --entrypoint sh rollupcreator -c "jq [.[]] /config/deployed_chain_info.json > /config/l2_chain_info.json"
+    docker compose -f $COMPOSE_FILE run --rm -e PARENT_CHAIN_RPC=$geth_http_rpc -e DEPLOYER_PRIVKEY=$l2ownerKey -e PARENT_CHAIN_ID=$l1chainid -e CHILD_CHAIN_NAME="arb-dev-test" -e MAX_DATA_SIZE=117964 -e OWNER_ADDRESS=$l2ownerAddress -e WASM_MODULE_ROOT=$wasmroot -e SEQUENCER_ADDRESS=$sequenceraddress -e AUTHORIZE_VALIDATORS=10 -e CHILD_CHAIN_CONFIG_PATH="/config/l2_chain_config.json" -e CHAIN_DEPLOYMENT_INFO="/config/deployment.json" -e CHILD_CHAIN_INFO="/config/deployed_chain_info.json" $EXTRA_L2_DEPLOY_FLAG rollupcreator create-rollup-testnode
+    docker compose -f $COMPOSE_FILE run --rm --entrypoint sh rollupcreator -c "jq [.[]] /config/deployed_chain_info.json > /config/l2_chain_info.json"
 
     echo == Writing configs
     if $priv_geth; then
-        docker compose run --rm scripts write-config --l1url ${priv_geth_ws_url}
+        docker compose -f $COMPOSE_FILE run --rm scripts write-config --l1url ${priv_geth_ws_url}
     else
-        docker compose run --rm scripts write-config
+        docker compose -f $COMPOSE_FILE run --rm scripts write-config
     fi
     
     echo == Initializing redis
-    docker compose up --wait redis
-    docker compose run --rm scripts redis-init --redundancy $redundantsequencers
+    docker compose -f $COMPOSE_FILE up --wait redis
+    docker compose -f $COMPOSE_FILE run --rm scripts redis-init --redundancy $redundantsequencers
 
     # Running sequencer
     echo == Funding l2 funnel and dev key 
-    docker compose up --wait $INITIAL_SEQ_NODES
+    docker compose -f $COMPOSE_FILE up --wait $INITIAL_SEQ_NODES
 
     if $tokenbridge; then
         echo == Deploying L1-L2 token bridge
         deployer_key=`printf "%s" "user_token_bridge_deployer" | openssl dgst -sha256 | sed 's/^.*= //'`
-        rollupAddress=`docker compose run --rm --entrypoint sh poster -c "jq -r '.[0].rollup.rollup' /config/deployed_chain_info.json | tail -n 1 | tr -d '\r\n'"`
+        rollupAddress=`docker compose -f $COMPOSE_FILE run --rm --entrypoint sh poster -c "jq -r '.[0].rollup.rollup' /config/deployed_chain_info.json | tail -n 1 | tr -d '\r\n'"`
         echo deployer_key: $deployer_key 
         echo rollupAddress: $rollupAddress
-        docker compose run --rm -e ROLLUP_OWNER_KEY=$l2ownerKey -e ROLLUP_ADDRESS=$rollupAddress -e PARENT_RPC=$geth_http_rpc -e PARENT_KEY=$deployer_key -e CHILD_RPC=http://sequencer:8547 -e CHILD_KEY=$deployer_key tokenbridge deploy:local:token-bridge
-        docker compose run --rm --entrypoint sh tokenbridge -c "cat network.json && cp network.json l1l2_network.json && cp network.json localNetwork.json"
+        docker compose -f $COMPOSE_FILE run --rm -e ROLLUP_OWNER_KEY=$l2ownerKey -e ROLLUP_ADDRESS=$rollupAddress -e PARENT_RPC=$geth_http_rpc -e PARENT_KEY=$deployer_key -e CHILD_RPC=http://sequencer:8547 -e CHILD_KEY=$deployer_key tokenbridge deploy:local:token-bridge
+        docker compose -f $COMPOSE_FILE run --rm --entrypoint sh tokenbridge -c "cat network.json && cp network.json l1l2_network.json && cp network.json localNetwork.json"
         echo
     fi
 
     echo == Funding l2 deployers
     if $l2_custom_fee_token; then
-        docker compose run --rm scripts bridge-native-token-to-l2 --l1url ${geth_ws_rpc} --amount 50000 --from user_token_bridge_deployer --wait
-        docker compose run --rm scripts send-l2 --ethamount 500 --from user_token_bridge_deployer --wait
-        docker compose run --rm scripts send-l2 --ethamount 500 --from user_token_bridge_deployer --to "key_0x$devprivkey" --wait
+        docker compose -f $COMPOSE_FILE run --rm scripts bridge-native-token-to-l2 --l1url ${geth_ws_rpc} --amount 50000 --from user_token_bridge_deployer --wait
+        docker compose -f $COMPOSE_FILE run --rm scripts send-l2 --ethamount 500 --from user_token_bridge_deployer --wait
+        docker compose -f $COMPOSE_FILE run --rm scripts send-l2 --ethamount 500 --from user_token_bridge_deployer --to "key_0x$devprivkey" --wait
     else
-        docker compose run --rm scripts bridge-funds --ethamount 100000 --wait
-        docker compose run --rm scripts bridge-funds --ethamount 1000 --wait --from "key_0x$devprivkey"
+        docker compose -f $COMPOSE_FILE run --rm scripts bridge-funds --ethamount 100000 --wait
+        docker compose -f $COMPOSE_FILE run --rm scripts bridge-funds --ethamount 1000 --wait --from "key_0x$devprivkey"
     fi
     #-----------------------------------------------------------------------------------------------------------------
     # L2 Nitro 세팅 End
@@ -432,5 +453,5 @@ if $run; then
     echo
 
     echo == Launching NODES: $NODES
-    docker compose up $UP_FLAG $NODES
+    docker compose -f $COMPOSE_FILE up $UP_FLAG $NODES
 fi
