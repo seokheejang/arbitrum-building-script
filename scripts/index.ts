@@ -44,6 +44,10 @@ async function main() {
         string: true,
         default: "0x3f1Eae7D46d88F08fc2F8ed27FCb2AB183EB2d0E",
       },
+      l3owner: {
+        string: true,
+        default: "0x3f1Eae7D46d88F08fc2F8ed27FCb2AB183EB2d0E",
+      },
     })
     .options(stressOptions)
     .command(bridgeFundsCommand)
