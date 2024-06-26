@@ -65,7 +65,7 @@ L3 Node Setting
 ./minimal-node.bash --init --build --detach --l3-node
 ```
 
-L3 Service Provier Node Setting
+L3 Service Provider Node Setting
 
 ```bash
 ./minimal-node.bash --init --build --detach --l3-nodesp

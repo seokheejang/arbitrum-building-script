@@ -58,7 +58,7 @@ else
     force_init=false
 fi
 
-run=true
+run=false
 force_build=false
 validate=false 
 detach=false
@@ -141,8 +141,8 @@ while [[ $# -gt 0 ]]; do
             tokenbridge=false
             shift
             ;;
-        --no-run)
-            run=false
+        --run)
+            run=true
             shift
             ;;
         --detach)
@@ -201,9 +201,9 @@ while [[ $# -gt 0 ]]; do
             echo --blockscout      build or launch blockscout
             echo --tokenbridge     deploy L1-L2 token bridge.
             echo --no-tokenbridge  don\'t build or launch tokenbridge
-            echo --no-run          does not launch nodes \(useful with build or init\)
             echo --debug           developer debugging mode
             echo ------------------------------------------
+            echo --run
             echo --no-prune
             echo --l1-fund
             echo --l2-node
@@ -233,6 +233,15 @@ fi
 NODES=""
 INITIAL_SEQ_NODES="sequencer"
 
+if $l2node; then
+    NODES="$NODES sequencer"
+fi
+if $l3node; then
+    NODES="$NODES l3node"
+fi
+if $l3nodesp; then
+    NODES="$NODES l3node_full_node"
+fi
 if $validate; then
     NODES="$NODES validator"
 elif ! $simple; then
@@ -324,6 +333,7 @@ if $l1fund; then
 fi
 
 if $force_init; then
+    run=true
     if $docker_prune; then
         func_project_docker_prune
     fi
@@ -369,8 +379,6 @@ if $force_init; then
             docker compose -f $COMPOSE_FILE run --rm --entrypoint sh tokenbridge -c "cat network.json && cp network.json l1l2_network.json && cp network.json localNetwork.json"
             echo
         fi
-
-        NODES="$NODES sequencer"
     fi
 
     if $l3node; then
@@ -428,12 +436,6 @@ if $force_init; then
         docker compose -f $COMPOSE_FILE run --rm scripts bridge-native-token-to-l3 --l2url ${l2_ws_rpc} --amount 5000000 --from user_token_bridge_deployer --wait
         docker compose -f $COMPOSE_FILE run --rm scripts send-l3 --ethamount 500 --from user_token_bridge_deployer --wait
         docker compose -f $COMPOSE_FILE run --rm scripts send-l3 --ethamount 500 --from user_token_bridge_deployer --to "key_0x$devprivkey" --wait
-
-        NODES="$NODES l3node"
-    fi
-
-    if $l3nodesp; then
-        NODES="l3node_full_node"
     fi
 fi
 

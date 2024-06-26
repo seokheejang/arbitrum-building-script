@@ -160,7 +160,22 @@ services:
       - "l1keystore:/home/user/l1keystore"
       - "config:/config"
       - "tokenbridge-data:/tokenbridge-data"
-    command: --conf.file /config/sequencer_config.json --node.feed.output.enable --node.feed.output.port 9642  --http.api net,web3,eth,txpool,debug --node.seq-coordinator.my-url  ws://sequencer:8548 --graphql.enable --graphql.vhosts * --graphql.corsdomain *
+    command:
+      - --conf.file=/config/sequencer_config.json
+      - --node.feed.output.enable
+      - --node.feed.output.port=9642
+      - --node.seq-coordinator.my-url=ws://sequencer:8548
+      - --http.addr=0.0.0.0
+      - --http.port=8547
+      - --http.vhosts=*
+      - --http.corsdomain=*
+      - --http.api=net,web3,eth,txpool,debug
+      - --ws.addr=0.0.0.0
+      - --ws.port=8548
+      - --ws.origins=*
+      - --graphql.enable
+      - --graphql.vhosts=*
+      - --graphql.corsdomain=*
 
   sequencer_b:
     pid: host # allow debugging
