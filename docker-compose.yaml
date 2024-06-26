@@ -280,14 +280,42 @@ services:
     ports:
       - "127.0.0.1:3347:3347"
       - "127.0.0.1:3348:3348"
+      - "127.0.0.1:9742:9742"
     volumes:
       - "validator-data:/home/user/.arbitrum/local/nitro"
       - "l1keystore:/home/user/l1keystore"
       - "config:/config"
-    command: --conf.file /config/l3node_config.json --http.port 3347 --http.api net,web3,arb,debug,eth --ws.port 3348
+    command: --conf.file /config/l3node_config.json --node.feed.output.enable --node.feed.output.port 9742 --http.port 3347 --http.api net,web3,arb,debug,eth --ws.port 3348
     depends_on:
       - sequencer
       - validation_node
+
+  l3node_full_node:
+    pid: host # allow debugging
+    image: ${NITRO_NODE_DEV_IMAGE}
+    ports:
+      - "127.0.0.1:3447:3447"
+      - "127.0.0.1:3448:3448"
+    volumes:
+      - "config:/config"
+    command:
+      - --parent-chain.connection.url=${L2_WS_URL}
+      - --chain.id=333333
+      - --chain.info-files=/config/l3_chain_info.json
+      - --node.staker.enable=false
+      - --node.sequencer=false
+      - --node.batch-poster.enable=false
+      - --execution.sequencer.enable=false
+      - --execution.forwarding-target=${L3_WS_URL}
+      - --node.feed.input.url=${L3_WS_FEED_URL}
+      - --http.addr=0.0.0.0
+      - --http.port=3447
+      - --http.vhosts=*
+      - --http.corsdomain=*
+      - --http.api=net,web3,arb,debug,eth
+      - --ws.addr=0.0.0.0
+      - --ws.port=3448
+      - --ws.origins=*
 
   validation_node:
     pid: host # allow debugging

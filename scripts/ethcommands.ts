@@ -399,7 +399,7 @@ export const createERC20Command = {
       const token = await tokenFactory.deploy(
         "AppTestToken",
         "APP",
-        ethers.utils.parseEther("1000000000"),
+        ethers.utils.parseEther("5000000000"),
         deployerWallet.address
       );
       await token.deployTransaction.wait();

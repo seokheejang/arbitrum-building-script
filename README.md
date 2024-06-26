@@ -6,11 +6,9 @@ arbitrum test node script repo
 
 1. L1(local) / L2(local)
 2. L1(private geth) / L2(local)
-3.
+3. Minimal Chain
 
 ## 1. L1(local) / L2(local)
-
----
 
 ### Init
 
@@ -25,8 +23,6 @@ arbitrum test node script repo
 ```
 
 ## 2. L1(private geth) / L2(local)
-
----
 
 ```bash
 cp .env.sample .env
@@ -44,10 +40,41 @@ cp .env.sample .env
 ./test-node-custom.bash --validate --batchposters 1 --redundantsequencers 0 --blockscout --tokenbridge --l2-fee-token --detach --priv-geth
 ```
 
+## 3. Minimal Chain
+
+```bash
+cp .env.sample .env
+# writing env value
+```
+
+L1 Funding
+
+```bash
+./minimal-node.bash --l1-fund
+```
+
+L2 Node Setting
+
+```bash
+./minimal-node.bash --init --build --detach --l2-node
+```
+
+L3 Node Setting
+
+```bash
+./minimal-node.bash --init --build --detach --l3-node
+```
+
+L3 Service Provier Node Setting
+
+```bash
+./minimal-node.bash --init --build --detach --l3-nodesp
+```
+
 ## Scripts code build
 
 ```bash
-docker compose build scripts
+NITRO_NODE_DEV_IMAGE=nitro-node-dev-testnode docker compose build scripts
 ```
 
 ## Named accounts
