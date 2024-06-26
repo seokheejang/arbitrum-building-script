@@ -7,6 +7,7 @@ arbitrum test node script repo
 1. L1(local) / L2(local)
 2. L1(private geth) / L2(local)
 3. Minimal Chain
+4. Send Tx
 
 ## 1. L1(local) / L2(local)
 
@@ -69,6 +70,22 @@ L3 Service Provider Node Setting
 
 ```bash
 ./minimal-node.bash --init --build --detach --l3-nodesp
+```
+
+Run node
+
+```bash
+./minimal-node.bash --run --detach --l2-node
+./minimal-node.bash --run --detach --l3-node
+./minimal-node.bash --run --detach --l3-nodesp
+```
+
+## Send Tx
+
+```bash
+./minimal-node.bash script send-l2 --wait
+./minimal-node.bash script send-l3 --wait
+./minimal-node.bash script send-l3 --wait --l3url ${l3-node-sp}
 ```
 
 ## Scripts code build

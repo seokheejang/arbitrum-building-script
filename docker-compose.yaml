@@ -26,7 +26,7 @@ services:
       DATABASE_URL: postgresql://postgres:@postgres:5432/blockscout
       ECTO_USE_SSL: "false"
     ports:
-      - "127.0.0.1:4000:4000"
+      - "${HOST_ADDR}:4000:4000"
 
   postgres:
     image: postgres:13.6
@@ -39,20 +39,20 @@ services:
     volumes:
       - "postgres-data:/var/lib/postgresql/data"
     ports:
-      - "127.0.0.1:7432:5432"
+      - "${HOST_ADDR}:7432:5432"
 
   redis:
     image: redis:6.2.6
     ports:
-      - "127.0.0.1:6379:6379"
+      - "${HOST_ADDR}:6379:6379"
 
   geth:
     image: ethereum/client-go:v1.10.23
     ports:
-      - "127.0.0.1:8545:8545"
-      - "127.0.0.1:8551:8551"
-      - "127.0.0.1:8546:8546"
-      - "127.0.0.1:30303:30303"
+      - "${HOST_ADDR}:8545:8545"
+      - "${HOST_ADDR}:8551:8551"
+      - "${HOST_ADDR}:8546:8546"
+      - "${HOST_ADDR}:30303:30303"
     volumes:
       - "l1data:/datadir"
       - "l1keystore:/keystore"
@@ -124,8 +124,8 @@ services:
       create_beacon_chain_genesis:
         condition: service_completed_successfully
     ports:
-      - "127.0.0.1:5000:5000"
-      - "127.0.0.1:3500:3500"
+      - "${HOST_ADDR}:5000:5000"
+      - "${HOST_ADDR}:3500:3500"
     volumes:
       - "consensus:/consensus"
       - "config:/config"
@@ -152,9 +152,9 @@ services:
     pid: host # allow debugging
     image: ${NITRO_NODE_DEV_IMAGE}
     ports:
-      - "127.0.0.1:8547:8547"
-      - "127.0.0.1:8548:8548"
-      - "127.0.0.1:9642:9642"
+      - "${HOST_ADDR}:8547:8547"
+      - "${HOST_ADDR}:8548:8548"
+      - "${HOST_ADDR}:9642:9642"
     volumes:
       - "seqdata:/home/user/.arbitrum/local/nitro"
       - "l1keystore:/home/user/l1keystore"
@@ -164,7 +164,7 @@ services:
       - --conf.file=/config/sequencer_config.json
       - --node.feed.output.enable
       - --node.feed.output.port=9642
-      - --node.seq-coordinator.my-url=ws://sequencer:8548
+      - --node.seq-coordinator.my-url=${L2_WS_URL}
       - --http.addr=0.0.0.0
       - --http.port=8547
       - --http.vhosts=*
@@ -172,7 +172,6 @@ services:
       - --http.api=net,web3,eth,txpool,debug
       - --ws.addr=0.0.0.0
       - --ws.port=8548
-      - --ws.origins=*
       - --graphql.enable
       - --graphql.vhosts=*
       - --graphql.corsdomain=*
@@ -181,8 +180,8 @@ services:
     pid: host # allow debugging
     image: ${NITRO_NODE_DEV_IMAGE}
     ports:
-      - "127.0.0.1:8647:8547"
-      - "127.0.0.1:8648:8548"
+      - "${HOST_ADDR}:8647:8547"
+      - "${HOST_ADDR}:8648:8548"
     volumes:
       - "seqdata_b:/home/user/.arbitrum/local/nitro"
       - "config:/config"
@@ -194,8 +193,8 @@ services:
     pid: host # allow debugging
     image: ${NITRO_NODE_DEV_IMAGE}
     ports:
-      - "127.0.0.1:8747:8547"
-      - "127.0.0.1:8748:8548"
+      - "${HOST_ADDR}:8747:8547"
+      - "${HOST_ADDR}:8748:8548"
     volumes:
       - "seqdata_c:/home/user/.arbitrum/local/nitro"
       - "config:/config"
@@ -207,8 +206,8 @@ services:
     pid: host # allow debugging
     image: ${NITRO_NODE_DEV_IMAGE}
     ports:
-      - "127.0.0.1:8847:8547"
-      - "127.0.0.1:8848:8548"
+      - "${HOST_ADDR}:8847:8547"
+      - "${HOST_ADDR}:8848:8548"
     volumes:
       - "seqdata_d:/home/user/.arbitrum/local/nitro"
       - "config:/config"
@@ -220,8 +219,8 @@ services:
     pid: host # allow debugging
     image: ${NITRO_NODE_DEV_IMAGE}
     ports:
-      - "127.0.0.1:8047:8547"
-      - "127.0.0.1:8048:8548"
+      - "${HOST_ADDR}:8047:8547"
+      - "${HOST_ADDR}:8048:8548"
     volumes:
       - "unsafestaker-data:/home/user/.arbitrum/local/nitro"
       - "l1keystore:/home/user/l1keystore"
@@ -236,8 +235,8 @@ services:
     pid: host # allow debugging
     image: ${NITRO_NODE_DEV_IMAGE}
     ports:
-      - "127.0.0.1:8147:8547"
-      - "127.0.0.1:8148:8548"
+      - "${HOST_ADDR}:8147:8547"
+      - "${HOST_ADDR}:8148:8548"
     volumes:
       - "poster-data:/home/user/.arbitrum/local/nitro"
       - "l1keystore:/home/user/l1keystore"
@@ -250,8 +249,8 @@ services:
     pid: host # allow debugging
     image: ${NITRO_NODE_DEV_IMAGE}
     ports:
-      - "127.0.0.1:9147:8547"
-      - "127.0.0.1:9148:8548"
+      - "${HOST_ADDR}:9147:8547"
+      - "${HOST_ADDR}:9148:8548"
     volumes:
       - "poster-data-b:/home/user/.arbitrum/local/nitro"
       - "l1keystore:/home/user/l1keystore"
@@ -264,8 +263,8 @@ services:
     pid: host # allow debugging
     image: ${NITRO_NODE_DEV_IMAGE}
     ports:
-      - "127.0.0.1:9247:8547"
-      - "127.0.0.1:9248:8548"
+      - "${HOST_ADDR}:9247:8547"
+      - "${HOST_ADDR}:9248:8548"
     volumes:
       - "poster-data-c:/home/user/.arbitrum/local/nitro"
       - "l1keystore:/home/user/l1keystore"
@@ -278,8 +277,8 @@ services:
     pid: host # allow debugging
     image: ${NITRO_NODE_DEV_IMAGE}
     ports:
-      - "127.0.0.1:8247:8547"
-      - "127.0.0.1:8248:8548"
+      - "${HOST_ADDR}:8247:8547"
+      - "${HOST_ADDR}:8248:8548"
     volumes:
       - "validator-data:/home/user/.arbitrum/local/nitro"
       - "l1keystore:/home/user/l1keystore"
@@ -293,26 +292,25 @@ services:
     pid: host # allow debugging
     image: ${NITRO_NODE_DEV_IMAGE}
     ports:
-      - "127.0.0.1:3347:3347"
-      - "127.0.0.1:3348:3348"
-      - "127.0.0.1:9742:9742"
+      - "${HOST_ADDR}:3347:3347"
+      - "${HOST_ADDR}:3348:3348"
+      - "${HOST_ADDR}:9742:9742"
     volumes:
       - "validator-data:/home/user/.arbitrum/local/nitro"
       - "l1keystore:/home/user/l1keystore"
       - "config:/config"
     command: --conf.file /config/l3node_config.json --node.feed.output.enable --node.feed.output.port 9742 --http.port 3347 --http.api net,web3,arb,debug,eth --ws.port 3348
     depends_on:
-      - sequencer
       - validation_node
 
   l3node_full_node:
     pid: host # allow debugging
     image: ${NITRO_NODE_DEV_IMAGE}
     ports:
-      - "127.0.0.1:3447:3447"
-      - "127.0.0.1:3448:3448"
+      - "${HOST_ADDR}:3447:3447"
+      - "${HOST_ADDR}:3448:3448"
     volumes:
-      - "config:/config"
+      - "${L3_CHAIN_INFO_FILE}:/config/l3_chain_info.json"
     command:
       - --parent-chain.connection.url=${L2_WS_URL}
       - --chain.id=333333
@@ -330,13 +328,12 @@ services:
       - --http.api=net,web3,arb,debug,eth
       - --ws.addr=0.0.0.0
       - --ws.port=3448
-      - --ws.origins=*
 
   validation_node:
     pid: host # allow debugging
     image: ${NITRO_NODE_DEV_IMAGE}
     ports:
-      - "127.0.0.1:8949:8549"
+      - "${HOST_ADDR}:8949:8549"
     volumes:
       - "config:/config"
     command: --conf.file /config/validation_node_config.json
@@ -353,7 +350,7 @@ services:
     pid: host
     image: ${NITRO_NODE_DEV_IMAGE}
     ports:
-      - "127.0.0.1:9652:9652"
+      - "${HOST_ADDR}:9652:9652"
     entrypoint: bin/relay
     command: --node.feed.output.port 9652 --node.feed.input.url ws://sequencer:9652
 
@@ -366,7 +363,7 @@ services:
       args:
         TOKEN_BRIDGE_BRANCH: ${TOKEN_BRIDGE_BRANCH:-}
     environment:
-      - ARB_URL=http://sequencer:8547
+      - ARB_URL=${L2_HTTP_URL}
       - ETH_URL=${ETH_HTTP_URL}
     volumes:
       - "tokenbridge-data:/workspace"

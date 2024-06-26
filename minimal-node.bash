@@ -83,9 +83,10 @@ l2_http_rpc=$L2_HTTP_URL
 l2_ws_rpc=$L2_WS_URL
 l2_chainid=$L2_CHAIN_ID
 
-export L2_WS_URL
-export L3_WS_URL
-export L3_WS_FEED_URL
+l3_http_rpc=$L3_HTTP_URL
+l3_ws_rpc=$L3_WS_URL
+l3_chainid=$L3_CHAIN_ID
+
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -394,7 +395,7 @@ if $force_init; then
         docker compose -f $COMPOSE_FILE run --rm scripts send-l1 --l1url ${l1_ws_rpc} --from ${l1_dev_privkey} --ethamount 10 --to user_fee_token_deployer --wait
         docker compose -f $COMPOSE_FILE run --rm scripts send-l2 --l2url ${l2_ws_rpc} --ethamount 100 --to user_fee_token_deployer --wait
 
-        L2 Chain 에 ERC-20 Deploy, --bridgeable false
+        # L2 Chain 에 ERC-20 Deploy, --bridgeable false
         echo == Deploying custom fee token
         nativeTokenAddress=`docker compose -f $COMPOSE_FILE run --rm scripts create-erc20 --l1url ${l1_ws_rpc} --l2url ${l2_ws_rpc} --deployer user_fee_token_deployer --mintTo user_token_bridge_deployer --bridgeable false | tail -n 1 | awk '{ print $NF }'`
         EXTRA_L3_DEPLOY_FLAG="-e FEE_TOKEN_ADDRESS=$nativeTokenAddress"
@@ -414,6 +415,7 @@ if $force_init; then
         
         echo == Writing l3 chain config
         docker compose -f $COMPOSE_FILE run --rm scripts write-l3-chain-config --l3owner $l3owneraddress
+        docker compose -f $COMPOSE_FILE run --rm scripts write-config --simple --l1url ${l1_ws_rpc} --l2url ${l2_ws_rpc}
 
         # Custom Fee Token Address 추가
         docker compose -f $COMPOSE_FILE run --rm -e PARENT_CHAIN_RPC=$l2_http_rpc -e DEPLOYER_PRIVKEY=$l3ownerkey -e PARENT_CHAIN_ID=$l2_chainid -e CHILD_CHAIN_NAME="minimal-l3-chain" -e MAX_DATA_SIZE=117964 -e OWNER_ADDRESS=$l3owneraddress -e WASM_MODULE_ROOT=$wasmroot -e SEQUENCER_ADDRESS=$l3sequenceraddress -e AUTHORIZE_VALIDATORS=10 -e CHILD_CHAIN_CONFIG_PATH="/config/l3_chain_config.json" -e CHAIN_DEPLOYMENT_INFO="/config/l3deployment.json" -e CHILD_CHAIN_INFO="/config/deployed_l3_chain_info.json" $EXTRA_L3_DEPLOY_FLAG rollupcreator create-rollup-testnode
@@ -426,16 +428,22 @@ if $force_init; then
         deployer_key=`printf "%s" "user_token_bridge_deployer" | openssl dgst -sha256 | sed 's/^.*= //'`
         rollupAddress=`docker compose -f $COMPOSE_FILE run --rm --entrypoint sh poster -c "jq -r '.[0].rollup.rollup' /config/deployed_l3_chain_info.json | tail -n 1 | tr -d '\r\n'"`
         l2Weth=""
-        l2Weth=`docker compose -f $COMPOSE_FILE run --rm --entrypoint sh tokenbridge -c "cat l1l2_network.json" | jq -r '.l2Network.tokenBridge.l2Weth'`
-        echo l2Weth: $l2Weth
+        # @TODO: L1 tokenbridge 스크립트 문제가 있어 진행 불가
+        # l2Weth=`docker compose -f $COMPOSE_FILE run --rm --entrypoint sh tokenbridge -c "cat l1l2_network.json" | jq -r '.l2Network.tokenBridge.l2Weth'`
+        # echo l2Weth: $l2Weth
 
-        docker compose -f $COMPOSE_FILE run --rm -e PARENT_WETH_OVERRIDE=$l2Weth -e ROLLUP_OWNER_KEY=$l3ownerkey -e ROLLUP_ADDRESS=$rollupAddress -e PARENT_RPC=$l2_http_rpc -e PARENT_KEY=$deployer_key  -e CHILD_RPC=http://l3node:3347 -e CHILD_KEY=$deployer_key tokenbridge deploy:local:token-bridge
+        docker compose -f $COMPOSE_FILE run --rm -e PARENT_WETH_OVERRIDE=$l2Weth -e ROLLUP_OWNER_KEY=$l3ownerkey -e ROLLUP_ADDRESS=$rollupAddress -e PARENT_RPC=$l2_http_rpc -e PARENT_KEY=$deployer_key -e CHILD_RPC=$l3_http_rpc -e CHILD_KEY=$deployer_key tokenbridge deploy:local:token-bridge
         docker compose -f $COMPOSE_FILE run --rm --entrypoint sh tokenbridge -c "cat network.json && cp network.json l2l3_network.json"
 
         echo == Fund L3 accounts
         docker compose -f $COMPOSE_FILE run --rm scripts bridge-native-token-to-l3 --l2url ${l2_ws_rpc} --amount 5000000 --from user_token_bridge_deployer --wait
         docker compose -f $COMPOSE_FILE run --rm scripts send-l3 --ethamount 500 --from user_token_bridge_deployer --wait
         docker compose -f $COMPOSE_FILE run --rm scripts send-l3 --ethamount 500 --from user_token_bridge_deployer --to "key_0x$devprivkey" --wait
+    fi
+
+    if $l3nodesp; then
+        # @TODO: /config/l3_chain_info.json 읽어 오기, 쉘에서 json 파일 읽기
+        echo "@@@"
     fi
 fi
 
