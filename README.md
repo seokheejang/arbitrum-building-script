@@ -66,10 +66,18 @@ L3 Node Setting
 ./minimal-node.bash --init --build --detach --l3-node
 ```
 
+Checkt l3_chain_info.json
+
+```bash
+docker run -it --rm -v arbitrum-building-script_config:/mnt ubuntu /bin/bash
+cd mnt
+cat l3_chain_info.json
+```
+
 L3 Service Provider Node Setting
 
 ```bash
-./minimal-node.bash --init --build --detach --l3-nodesp
+./minimal-node.bash --init --build --detach --l3-node-sp
 ```
 
 Run node
@@ -77,7 +85,7 @@ Run node
 ```bash
 ./minimal-node.bash --run --detach --l2-node
 ./minimal-node.bash --run --detach --l3-node
-./minimal-node.bash --run --detach --l3-nodesp
+./minimal-node.bash --run --detach --l3-node-sp
 ```
 
 ## Send Tx
@@ -85,7 +93,7 @@ Run node
 ```bash
 ./minimal-node.bash script send-l2 --wait
 ./minimal-node.bash script send-l3 --wait
-./minimal-node.bash script send-l3 --wait --l3url ${l3-node-sp}
+./minimal-node.bash script send-l3 --to address_0x1111222233334444555566667777888899990000 --wait --l3url ${l3-node-sp}
 ```
 
 ## Scripts code build

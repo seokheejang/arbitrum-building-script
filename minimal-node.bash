@@ -11,7 +11,8 @@ else
   exit 1
 fi
 
-NITRO_NODE_VERSION=offchainlabs/nitro-node:v2.3.3-6a1c1a7-dev
+# NITRO_NODE_VERSION=offchainlabs/nitro-node:v2.3.3-6a1c1a7-dev
+NITRO_NODE_VERSION=offchainlabs/nitro-node:v3.0.2-9efbc16
 BLOCKSCOUT_VERSION=offchainlabs/blockscout:v1.0.0-c8db5b1
 
 # This commit matches the v1.2.1 contracts, with additional fixes for rollup deployment script.
@@ -31,6 +32,7 @@ export NITRO_CONTRACTS_BRANCH
 export TOKEN_BRIDGE_BRANCH
 export NITRO_NODE_DEV_IMAGE=${DEBUG_DOCKER_HUB_IMAGE}
 
+echo "Using NITRO_NODE_VERSION: $NITRO_NODE_VERSION"
 echo "Using NITRO_CONTRACTS_BRANCH: $NITRO_CONTRACTS_BRANCH"
 echo "Using TOKEN_BRIDGE_BRANCH: $TOKEN_BRIDGE_BRANCH"
 
@@ -369,6 +371,7 @@ if $force_init; then
         # TODO: devprivkey와 bridge-funds 계정에 이더 얼마나 넣을지 확인 필요
         docker compose -f $COMPOSE_FILE run --rm scripts bridge-funds --l1url ${l1_ws_rpc} --ethamount 100000 --wait
         docker compose -f $COMPOSE_FILE run --rm scripts bridge-funds --l1url ${l1_ws_rpc} --ethamount 10000 --wait --from "key_0x$devprivkey"
+        docker compose -f $COMPOSE_FILE run --rm scripts send-l2 --l2url ${l2_ws_rpc} --ethamount 100 --to l2owner --wait
 
         if $tokenbridge; then
             echo == Deploying L1-L2 token bridge
@@ -439,6 +442,7 @@ if $force_init; then
         docker compose -f $COMPOSE_FILE run --rm scripts bridge-native-token-to-l3 --l2url ${l2_ws_rpc} --amount 5000000 --from user_token_bridge_deployer --wait
         docker compose -f $COMPOSE_FILE run --rm scripts send-l3 --ethamount 500 --from user_token_bridge_deployer --wait
         docker compose -f $COMPOSE_FILE run --rm scripts send-l3 --ethamount 500 --from user_token_bridge_deployer --to "key_0x$devprivkey" --wait
+        docker compose -f $COMPOSE_FILE run --rm scripts send-l3 --ethamount 500 --from user_token_bridge_deployer --to l3owner --wait
     fi
 
     if $l3nodesp; then
