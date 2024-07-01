@@ -299,7 +299,14 @@ services:
       - "validator-data:/home/user/.arbitrum/local/nitro"
       - "l1keystore:/home/user/l1keystore"
       - "config:/config"
-    command: --conf.file /config/l3node_config.json --node.feed.output.enable --node.feed.output.port 9742 --http.port 3347 --http.api net,web3,arb,debug,eth --ws.port 3348
+    command:
+      - --conf.file=/config/l3node_config.json
+      - --execution.sequencer.max-acceptable-timestamp-delta=730h0m0s
+      - --node.feed.output.enable
+      - --node.feed.output.port=9742
+      - --http.port=3347
+      - --http.api=net,web3,arb,debug,eth
+      - --ws.port=3348
     depends_on:
       - validation_node
 
