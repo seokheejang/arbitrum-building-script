@@ -4,26 +4,11 @@ arbitrum test node script repo
 
 ## Building Scenario
 
-1. L1(local) / L2(local)
-2. L1(private geth) / L2(local)
-3. Minimal Chain
-4. Send Tx
+1. L1(private geth) / L2(local) / L3(local)
+2. Minimal Chain
+3. Send Tx
 
-## 1. L1(local) / L2(local)
-
-### Init
-
-```bash
-./test-node-custom.bash --init --build --validate --batchposters 1 --redundantsequencers 0 --blockscout --tokenbridge --l2-fee-token --detach
-```
-
-### Running
-
-```bash
-./test-node-custom.bash --validate --batchposters 1 --redundantsequencers 0 --blockscout --tokenbridge --l2-fee-token --detach
-```
-
-## 2. L1(private geth) / L2(local)
+## 1. L1(private geth) / L2(local) / L3(local)
 
 ```bash
 cp .env.sample .env
@@ -32,16 +17,16 @@ cp .env.sample .env
 ### Init
 
 ```bash
-./test-node-custom.bash --init --build --validate --batchposters 1 --redundantsequencers 0 --blockscout --tokenbridge --l2-fee-token --detach --priv-geth
+./test-node.bash --init --build --detach --l2-node --l3-node
 ```
 
 ### Running
 
 ```bash
-./test-node-custom.bash --validate --batchposters 1 --redundantsequencers 0 --blockscout --tokenbridge --l2-fee-token --detach --priv-geth
+./test-node.bash --run --detach --l2-node --l3-node
 ```
 
-## 3. Minimal Chain
+## 2. Minimal Chain
 
 ```bash
 cp .env.sample .env
@@ -88,7 +73,7 @@ Run node
 ./minimal-node.bash --run --detach --l3-node-sp
 ```
 
-## Send Tx
+## 3. Send Tx
 
 ```bash
 ./minimal-node.bash script send-l2 --wait
@@ -105,7 +90,7 @@ NITRO_NODE_DEV_IMAGE=nitro-node-dev-testnode docker compose build scripts
 ## Named accounts
 
 ```bash
-./test-node-custom.bash script print-address --account sequencer
+./test-node.bash script print-address --account sequencer
 ```
 
 ```

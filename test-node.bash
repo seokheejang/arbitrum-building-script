@@ -12,7 +12,6 @@ else
 fi
 LOG_FILE="./node-build-result.log"
 
-# NITRO_NODE_VERSION=offchainlabs/nitro-node:v2.3.3-6a1c1a7-dev
 NITRO_NODE_VERSION=offchainlabs/nitro-node:v3.0.2-9efbc16
 BLOCKSCOUT_VERSION=offchainlabs/blockscout:v1.0.0-c8db5b1
 
@@ -21,7 +20,7 @@ BLOCKSCOUT_VERSION=offchainlabs/blockscout:v1.0.0-c8db5b1
 DEFAULT_NITRO_CONTRACTS_VERSION="a00d2faac01e050339ff7b0ac5bc91df06e8dbff"
 DEFAULT_TOKEN_BRIDGE_VERSION="v1.2.1"
 
-# docker env
+# debug compose file
 COMPOSE_FILE="docker-compose.yaml"
 DEBUG_DOCKER_HUB_IMAGE="nitro-node-dev-testnode"
 REPO_NAME="arbitrum-building-script"
@@ -36,7 +35,6 @@ export NITRO_NODE_DEV_IMAGE=${DEBUG_DOCKER_HUB_IMAGE}
 echo "Using NITRO_NODE_VERSION: $NITRO_NODE_VERSION"
 echo "Using NITRO_CONTRACTS_BRANCH: $NITRO_CONTRACTS_BRANCH"
 echo "Using TOKEN_BRIDGE_BRANCH: $TOKEN_BRIDGE_BRANCH"
-
 
 mydir=`dirname $0`
 cd "$mydir"
@@ -63,10 +61,10 @@ fi
 
 run=false
 force_build=false
-validate=false 
+validate=false
 detach=false
 blockscout=false
-tokenbridge=true
+tokenbridge=false
 dev_build_nitro=false
 dev_build_blockscout=false
 devprivkey=b6b15c8cb491557369f3c7d2c287b053eb229daa9c22138887752191c9520659
@@ -90,12 +88,10 @@ l3_http_rpc=$L3_HTTP_URL
 l3_ws_rpc=$L3_WS_URL
 l3_chainid=$L3_CHAIN_ID
 
-
 while [[ $# -gt 0 ]]; do
     case $1 in
         --init)
             if ! $force_init; then
-                # TODO: 여기서 특정 노드만 재설정하는건 어떤데
                 echo == Warning! this will remove all previous data
                 read -p "are you sure? [y/n]" -n 1 response
                 if [[ $response == "y" ]] || [[ $response == "Y" ]]; then
@@ -153,10 +149,6 @@ while [[ $# -gt 0 ]]; do
             detach=true
             shift
             ;;
-        --l3node)
-            l3node=true
-            shift
-            ;;
         --simple)
             simple=true
             shift
@@ -196,7 +188,6 @@ while [[ $# -gt 0 ]]; do
             echo Usage: $0 \[OPTIONS..]
             echo        $0 script [SCRIPT-ARGS]
             echo
-            # 체인 별 옵션 예시 보여주기
             echo OPTIONS:
             echo --build           rebuild docker images
             echo --dev             build nitro and blockscout dockers from source instead of pulling them. Disables simple mode
@@ -213,6 +204,7 @@ while [[ $# -gt 0 ]]; do
             echo --l2-node
             echo --l3-node
             echo --l3-node-sp
+            echo
             echo script runs inside a sepwarate docker. For SCRIPT-ARGS, run $0 script --help
             exit 0
     esac
@@ -237,6 +229,9 @@ fi
 NODES=""
 INITIAL_SEQ_NODES="sequencer"
 
+if ! $simple; then
+    NODES="$NODES redis"
+fi
 if $l2node; then
     NODES="$NODES sequencer"
 fi
@@ -343,14 +338,12 @@ if $force_init; then
         exec > >(tee -a $LOG_FILE) 2>&1
         func_project_docker_prune
     fi
-
     echo == Generating l1 keys and config setting
     docker compose -f $COMPOSE_FILE run --rm scripts write-accounts
     docker compose -f $COMPOSE_FILE run --rm --entrypoint sh geth -c "echo passphrase > /datadir/passphrase"
     docker compose -f $COMPOSE_FILE run --rm --entrypoint sh geth -c "chown -R 1000:1000 /keystore"
     docker compose -f $COMPOSE_FILE run --rm --entrypoint sh geth -c "chown -R 1000:1000 /config"
 
-    # L2 Arbitrum 노드 세팅
     if $l2node; then
         l2ownerAddress=`docker compose -f $COMPOSE_FILE run --rm scripts print-address --account l2owner | tail -n 1 | tr -d '\r\n'`
         l2ownerKey=`docker compose -f $COMPOSE_FILE run --rm scripts print-private-key --account l2owner | tail -n 1 | tr -d '\r\n'`
@@ -359,13 +352,12 @@ if $force_init; then
 
         echo == Writing l2 chain config
         docker compose -f $COMPOSE_FILE run --rm scripts write-l2-chain-config --l2owner $l2ownerAddress
-
         echo == Deploying L2 chain
         docker compose -f $COMPOSE_FILE run --rm -e PARENT_CHAIN_RPC=$l1_http_rpc -e DEPLOYER_PRIVKEY=$l2ownerKey -e PARENT_CHAIN_ID=$l1_chainid -e CHILD_CHAIN_NAME="minimal-l2-chain" -e MAX_DATA_SIZE=117964 -e OWNER_ADDRESS=$l2ownerAddress -e WASM_MODULE_ROOT=$wasmroot -e SEQUENCER_ADDRESS=$sequenceraddress -e AUTHORIZE_VALIDATORS=10 -e CHILD_CHAIN_CONFIG_PATH="/config/l2_chain_config.json" -e CHAIN_DEPLOYMENT_INFO="/config/deployment.json" -e CHILD_CHAIN_INFO="/config/deployed_chain_info.json" rollupcreator create-rollup-testnode
         docker compose -f $COMPOSE_FILE run --rm --entrypoint sh rollupcreator -c "jq [.[]] /config/deployed_chain_info.json > /config/l2_chain_info.json"
 
         # l2 sequencer(poster, validator)
-        docker compose -f $COMPOSE_FILE run --rm scripts write-config --simple --l1url ${l1_ws_rpc}
+        docker compose -f $COMPOSE_FILE run --rm scripts write-config  --simple --l1url ${l1_ws_rpc}
 
         # Running sequencer
         echo == Funding l2 funnel and dev key 
@@ -447,11 +439,6 @@ if $force_init; then
         docker compose -f $COMPOSE_FILE run --rm scripts send-l3 --ethamount 500 --from user_token_bridge_deployer --to "key_0x$devprivkey" --wait
         docker compose -f $COMPOSE_FILE run --rm scripts send-l3 --ethamount 500 --from user_token_bridge_deployer --to l3owner --wait
     fi
-
-    if $l3nodesp; then
-        # @TODO: /config/l3_chain_info.json 읽어 오기, 쉘에서 json 파일 읽기
-        echo "@@@"
-    fi
 fi
 
 if $run; then
@@ -467,4 +454,3 @@ if $run; then
     echo == Launching NODES: $NODES
     docker compose -f $COMPOSE_FILE up $UP_FLAG $NODES
 fi
-

@@ -36,9 +36,9 @@ async function main() {
   await Yargs(hideBin(process.argv))
     .options({
       redisUrl: { string: true, default: "redis://redis:6379" },
-      l1url: { string: true, default: "ws://geth:8546" },
-      l2url: { string: true, default: "ws://sequencer:8548" },
-      l3url: { string: true, default: "ws://l3node:3348" },
+      l1url: { string: true, default: "ws://host.docker.internal:8546" },
+      l2url: { string: true, default: "ws://host.docker.internal:8548" },
+      l3url: { string: true, default: "ws://host.docker.internal:3348" },
       validationNodeUrl: { string: true, default: "ws://validation_node:8549" },
       l2owner: {
         string: true,
