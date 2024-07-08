@@ -51,10 +51,16 @@ L3 Node Setting
 ./minimal-node.bash --init --build --detach --l3-node
 ```
 
+(If local l2 + l3)
+
+```bash
+./minimal-node.bash --init --build --detach --l3-node --no-prune
+```
+
 Checkt l3_chain_info.json
 
 ```bash
-docker run -it --rm -v arbitrum-building-script_config:/mnt ubuntu /bin/bash
+docker run -it --rm -v nw-node-build-script_config:/mnt ubuntu /bin/bash
 cd mnt
 cat l3_chain_info.json
 ```

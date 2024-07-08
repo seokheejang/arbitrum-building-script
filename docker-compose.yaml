@@ -320,7 +320,7 @@ services:
       - "${L3_CHAIN_INFO_FILE}:/config/l3_chain_info.json"
     command:
       - --parent-chain.connection.url=${L2_WS_URL}
-      - --chain.id=333333
+      - --chain.id=${L3_CHAIN_ID}
       - --chain.info-files=/config/l3_chain_info.json
       - --node.staker.enable=false
       - --node.sequencer=false

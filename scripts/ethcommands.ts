@@ -397,8 +397,8 @@ export const createERC20Command = {
         deployerWallet
       );
       const token = await tokenFactory.deploy(
-        "AppTestToken",
-        "APP",
+        "dKargo",
+        "DKA",
         ethers.utils.parseEther("5000000000"),
         deployerWallet.address
       );
@@ -471,9 +471,9 @@ export const createERC20Command = {
       deployerWallet
     );
     const contract = await contractFactory.deploy(
-      "AppTestToken",
-      "APP",
-      ethers.utils.parseEther("1000000000"),
+      "dKargo",
+      "DKA",
+      ethers.utils.parseEther("5000000000"),
       namedAccount(argv.mintTo).address
     );
     await contract.deployTransaction.wait();

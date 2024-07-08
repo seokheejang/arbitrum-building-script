@@ -297,12 +297,21 @@ function writeConfigs(argv: any) {
     );
   }
 
+  let l3chainId;
+  if (
+    typeof argv.l3chainid === "string" ||
+    typeof argv.l3chainid === "number"
+  ) {
+    l3chainId = parseInt(argv.l3chainid, 10);
+  }
+
   let l3Config = JSON.parse(baseConfJSON);
   l3Config["parent-chain"].connection.url = argv.l2url;
   l3Config.node.staker["parent-chain-wallet"].account = namedAddress("l3owner");
   l3Config.node["batch-poster"]["parent-chain-wallet"].account =
     namedAddress("l3sequencer");
-  l3Config.chain.id = 333333;
+  l3Config.chain.id =
+    Number.isNaN(l3chainId) || !l3chainId ? 333333 : l3chainId;
   const l3ChainInfoFile = path.join(consts.configpath, "l3_chain_info.json");
   l3Config.chain["info-files"] = [l3ChainInfoFile];
   l3Config.node.staker.enable = true;
@@ -386,7 +395,7 @@ function writeL2ChainConfig(argv: any) {
 
 function writeL3ChainConfig(argv: any) {
   const l3ChainConfig = {
-    chainId: 333333,
+    chainId: argv.l3chainid,
     homesteadBlock: 0,
     daoForkSupport: true,
     eip150Block: 0,

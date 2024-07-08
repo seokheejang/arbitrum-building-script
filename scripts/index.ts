@@ -48,6 +48,10 @@ async function main() {
         string: true,
         default: "0x3f1Eae7D46d88F08fc2F8ed27FCb2AB183EB2d0E",
       },
+      l3chainid: {
+        number: true,
+        default: 333333,
+      },
     })
     .options(stressOptions)
     .command(bridgeFundsCommand)

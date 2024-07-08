@@ -38,15 +38,15 @@
       }
     },
     "rollup": {
-      "bridge": "0xe51058F76aBA48A4050fb184E1c365F3a4919Ac1",
-      "inbox": "0xF094A7467B43fF674E7830185E1949C522EAa74F",
-      "sequencer-inbox": "0xc83EEE8d7bEE900f7A144489FdC1e5702C956D09",
-      "deployed-at": 588,
-      "rollup": "0xf0EB073f735Ec2A237569e10fF79820bB012C2e6",
-      "native-token": "0x58ec894b884869190Dc9467D2a9b6Db6B2dc1F59",
-      "upgrade-executor": "0xf4e66A0726A97f0777Fd9973C72F9F7C09724240",
-      "validator-utils": "0x97B11D7255028A5f0A0b7BdA05b47DD23f1D5695",
-      "validator-wallet-creator": "0xdbb1AB520453dB69C4FE4ca317893E415440017E"
+      "bridge": "0x1DeA7Ff5dE2503f950A4A80788567B810BE62d4e",
+      "inbox": "0xa3219458feEe64C26Bfe9F3CbA50765F6Fd76e09",
+      "sequencer-inbox": "0x1f92A9A7D49387aab28cD4740Ec3bac92722FB95",
+      "deployed-at": 51,
+      "rollup": "0x574404c19C87AAC472A38331D54CCbaD0f86e078",
+      "native-token": "0x9B7C0fcc305ca36412F87Fd6Bd08c194909A7d4E",
+      "upgrade-executor": "0x6dCae6264E1D6f5B992299eb0a9AE5273900e901",
+      "validator-utils": "0x9aA083eE744Bf49D2E9B5F244AC62030e544E659",
+      "validator-wallet-creator": "0x44337e56782D4D372b5A080d9bA005E0D991F0c7"
     }
   }
 ]

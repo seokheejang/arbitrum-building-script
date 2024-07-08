@@ -11,6 +11,8 @@ else
   exit 1
 fi
 LOG_FILE="./node-build-result.log"
+SCRIPT_DIR=$(readlink -f $(dirname "$0"))
+REPO_NAME=$(basename "$SCRIPT_DIR")
 
 # NITRO_NODE_VERSION=offchainlabs/nitro-node:v2.3.3-6a1c1a7-dev
 NITRO_NODE_VERSION=offchainlabs/nitro-node:v3.0.2-9efbc16
@@ -24,7 +26,6 @@ DEFAULT_TOKEN_BRIDGE_VERSION="v1.2.1"
 # docker env
 COMPOSE_FILE="docker-compose.yaml"
 DEBUG_DOCKER_HUB_IMAGE="nitro-node-dev-testnode"
-REPO_NAME="arbitrum-building-script"
 
 # Set default versions if not overriden by provided env vars
 : ${NITRO_CONTRACTS_BRANCH:=$DEFAULT_NITRO_CONTRACTS_VERSION}
@@ -331,7 +332,7 @@ if $l1fund; then
     docker compose -f $COMPOSE_FILE run --rm scripts send-l1 --ethamount 1000 --from ${l1_dev_privkey} --to l2owner --l1url ${l1_ws_rpc} --wait 
     docker compose -f $COMPOSE_FILE run --rm scripts send-l1 --ethamount 1000 --from ${l1_dev_privkey} --to user_fee_token_deployer --l1url ${l1_ws_rpc} --wait
     docker compose -f $COMPOSE_FILE run --rm scripts send-l1 --ethamount 1000 --from ${l1_dev_privkey} --to user_token_bridge_deployer --l1url ${l1_ws_rpc} --wait
-    docker compose -f $COMPOSE_FILE run --rm scripts send-l1 --ethamount 10000 --from ${l1_dev_privkey} --to key_0x$devprivkey --l1url ${l1_ws_rpc} --wait
+    docker compose -f $COMPOSE_FILE run --rm scripts send-l1 --ethamount 100000 --from ${l1_dev_privkey} --to key_0x$devprivkey --l1url ${l1_ws_rpc} --wait
     docker compose -f $COMPOSE_FILE run --rm scripts send-l1 --ethamount 1000000 --from ${l1_dev_privkey} --to funnel --l1url ${l1_ws_rpc} --wait
     exit 0
 fi
@@ -420,8 +421,8 @@ if $force_init; then
         echo wasmroot: $wasmroot
         
         echo == Writing l3 chain config
-        docker compose -f $COMPOSE_FILE run --rm scripts write-l3-chain-config --l3owner $l3owneraddress
-        docker compose -f $COMPOSE_FILE run --rm scripts write-config --simple --l1url ${l1_ws_rpc} --l2url ${l2_ws_rpc}
+        docker compose -f $COMPOSE_FILE run --rm scripts write-l3-chain-config --l3owner $l3owneraddress --l3chainid $l3_chainid
+        docker compose -f $COMPOSE_FILE run --rm scripts write-config --simple --l1url ${l1_ws_rpc} --l2url ${l2_ws_rpc} --l3chainid $l3_chainid
 
         # Custom Fee Token Address 추가
         docker compose -f $COMPOSE_FILE run --rm -e PARENT_CHAIN_RPC=$l2_http_rpc -e DEPLOYER_PRIVKEY=$l3ownerkey -e PARENT_CHAIN_ID=$l2_chainid -e CHILD_CHAIN_NAME="minimal-l3-chain" -e MAX_DATA_SIZE=117964 -e OWNER_ADDRESS=$l3owneraddress -e WASM_MODULE_ROOT=$wasmroot -e SEQUENCER_ADDRESS=$l3sequenceraddress -e AUTHORIZE_VALIDATORS=10 -e CHILD_CHAIN_CONFIG_PATH="/config/l3_chain_config.json" -e CHAIN_DEPLOYMENT_INFO="/config/l3deployment.json" -e CHILD_CHAIN_INFO="/config/deployed_l3_chain_info.json" $EXTRA_L3_DEPLOY_FLAG rollupcreator create-rollup-testnode
